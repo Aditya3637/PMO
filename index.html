@@ -245,7 +245,22 @@ function prevImport(){
 function doImport(){const eL=DB.buildings.map(b=>b.name.toLowerCase());impParsed.filter(b=>!eL.includes(b.name.toLowerCase())).forEach(b=>DB.buildings.push({id:uid(),...b}));saveDB();closeSheet();renderBuildings();}
 
 // PROJECTS
-let expP={},expS={},pFil='active';
+let expP={},expS={},expDone={},pFil='active';
+const sortTasks=(arr)=>[...arr].sort((a,b)=>{const aod=isOD(a.dueDate,a.status)?1:0;const bod=isOD(b.dueDate,b.status)?1:0;if(aod!==bod)return bod-aod;const ad=a.dueDate||'9999-12-31';const bd=b.dueDate||'9999-12-31';if(ad!==bd)return ad.localeCompare(bd);return (a.title||'').localeCompare(b.title||'');});
+function renderTaskBuckets(tasks,bucketKey,emptyTxt){
+  const open=tasks.filter(t=>t.status!=='done');
+  const done=tasks.filter(t=>t.status==='done');
+  const sortedOpen=sortTasks(open);
+  const sortedDone=sortTasks(done);
+  let out='';
+  if(sortedOpen.length)out+=sortedOpen.map(t=>tRow(t)).join('');
+  if(!sortedOpen.length&&!sortedDone.length&&emptyTxt)out+=`<div style="font-size:12px;color:#94A3B8;padding:6px 2px">${emptyTxt}</div>`;
+  if(sortedDone.length){
+    const isOpen=!!expDone[bucketKey];
+    out+=`<div style="margin-top:8px"><div class="sub-row" onclick="expDone['${bucketKey}']=!expDone['${bucketKey}'];renderProjects()" style="padding:7px 10px"><span style="font-size:11px;color:#94A3B8;width:10px">${isOpen?'▾':'▸'}</span><span style="font-size:12px;font-weight:600;color:#64748B;flex:1">Done (${sortedDone.length})</span></div>${isOpen?`<div style="padding-top:7px">${sortedDone.map(t=>tRow(t)).join('')}</div>`:''}</div>`;
+  }
+  return out;
+}
 function renderProjects(){
   const projs=DB.projects.filter(p=>pFil==='all'?true:pFil==='done'?p.status==='done':p.status!=='done');
   let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:19px;font-weight:700">Projects</div><button class="btn-primary btn-sm" onclick="openProjectForm()">+ New</button></div>
@@ -282,16 +297,18 @@ function renderProjects(){
         </div>`;
       if(pbs.length){
         h+=`<div style="font-size:11px;font-weight:600;color:#64748B;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em">Buildings (${pbs.length})</div>`;
-        pbs.forEach(r=>{h+=`<div class="bldg-pb-row" onclick="openPBStatus('${r.id}')"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(r.b.name)} <span style="font-size:11px;color:#94A3B8;font-weight:400">— ${esc(r.b.city)}</span></div>${r.remarks?`<div style="font-size:11px;color:#64748B;margin-top:3px;font-style:italic;line-height:1.4">${esc(r.remarks)}</div>`:''}</div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${bdg(r.status,BS)}<span style="font-size:11px;color:#94A3B8">✎</span></div></div>`;});
+        pbs.forEach(r=>{const bAssignee=DB.people.find(p=>p.id===r.assignedTo);const bOverdue=isOD(r.dueDate,r.status);h+=`<div class="bldg-pb-row" onclick="openPBStatus('${r.id}')"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(r.b.name)} <span style="font-size:11px;color:#94A3B8;font-weight:400">— ${esc(r.b.city)}</span></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">${r.dueDate?`<span style="font-size:11px;color:${bOverdue?'#DC2626':'#94A3B8'};font-weight:${bOverdue?600:400}">${bOverdue?'⚠ ':''}${fd(r.dueDate)}</span>`:''}${bAssignee?av(bAssignee.name,bAssignee.color,18):''}</div>${r.remarks?`<div style="font-size:11px;color:#64748B;margin-top:3px;font-style:italic;line-height:1.4">${esc(r.remarks)}</div>`:''}</div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${bdg(r.status,BS)}<span style="font-size:11px;color:#94A3B8">✎</span></div></div>`;});
         h+=`<div style="margin-bottom:10px"></div>`;
       }
       subs.forEach(sub=>{
         const st=DB.tasks.filter(t=>t.subProjectId===sub.id);
         const sp=st.filter(t=>t.status!=='done').length;
+        const sAssignee=DB.people.find(p=>p.id===sub.assignedTo);
+        const sOverdue=isOD(sub.dueDate||sub.deadline,sub.status);
         const isExpS=!!expS[sub.id];
-        h+=`<div style="margin-bottom:8px;margin-left:4px"><div class="sub-row" onclick="expS['${sub.id}']=!expS['${sub.id}'];renderProjects()"><span style="font-size:11px;color:#94A3B8;width:10px">${isExpS?'▾':'▸'}</span><span style="font-size:13px;font-weight:500;color:#334155;flex:1">${esc(sub.name)}</span>${sp?`<span class="badge" style="background:#EEF2FF;color:#4338CA;border:none">${sp}</span>`:''}${sub.deadline?`<span style="font-size:11px;color:#94A3B8">${fd(sub.deadline)}</span>`:''}<button class="mini-btn" style="background:#EEF2FF;color:#4F46E5;border:1px solid #4F46E533;padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openTaskForm('${proj.id}','${sub.id}')">+Task</button><button onclick="event.stopPropagation();openSubForm('${proj.id}','${sub.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#94A3B8">✎</button><button onclick="event.stopPropagation();delSub('${sub.id}')" style="background:none;border:none;cursor:pointer;font-size:15px;color:#94A3B8">×</button></div>${isExpS?`<div style="padding-top:7px;padding-left:10px">${st.map(t=>tRow(t)).join('')}</div>`:''}</div>`;
+        h+=`<div style="margin-bottom:8px;margin-left:4px"><div class="sub-row" onclick="expS['${sub.id}']=!expS['${sub.id}'];renderProjects()"><span style="font-size:11px;color:#94A3B8;width:10px">${isExpS?'▾':'▸'}</span><span style="font-size:13px;font-weight:500;color:#334155;flex:1">${esc(sub.name)}</span>${sp?`<span class="badge" style="background:#EEF2FF;color:#4338CA;border:none">${sp}</span>`:''}${(sub.dueDate||sub.deadline)?`<span style="font-size:11px;color:${sOverdue?'#DC2626':'#94A3B8'};font-weight:${sOverdue?600:400}">${sOverdue?'⚠ ':''}${fd(sub.dueDate||sub.deadline)}</span>`:''}${sAssignee?av(sAssignee.name,sAssignee.color,18):''}<button class="mini-btn" style="background:#EEF2FF;color:#4F46E5;border:1px solid #4F46E533;padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openTaskForm('${proj.id}','${sub.id}')">+Task</button><button onclick="event.stopPropagation();openSubForm('${proj.id}','${sub.id}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#94A3B8">✎</button><button onclick="event.stopPropagation();delSub('${sub.id}')" style="background:none;border:none;cursor:pointer;font-size:15px;color:#94A3B8">×</button></div>${sub.remarks?`<div style="font-size:11px;color:#64748B;line-height:1.4;margin:4px 0 0 18px">${esc(sub.remarks)}</div>`:''}${isExpS?`<div style="padding-top:7px;padding-left:10px">${renderTaskBuckets(st,'done-sub-'+sub.id,'No tasks in this sub-project yet.')}</div>`:''}</div>`;
       });
-      if(dirT.length){if(subs.length)h+=`<div style="font-size:11px;color:#94A3B8;margin-bottom:6px;padding-left:2px;margin-top:10px">Direct tasks</div>`;h+=dirT.map(t=>tRow(t)).join('');}
+      if(subs.length||dirT.length){h+=`<div style="font-size:11px;color:#94A3B8;margin-bottom:6px;padding-left:2px;margin-top:10px">Direct tasks</div>`;h+=renderTaskBuckets(dirT,'done-dir-'+proj.id,'No direct tasks yet.');}
       h+=`</div>`;
     }
     h+=`</div>`;
@@ -317,9 +334,9 @@ function saveProject(id){const n=val('prf-n').trim();if(!n)return;const o={name:
 
 function openSubForm(projectId,id){
   const s=id?DB.subs.find(x=>x.id===id):null;const pid=s?.projectId||projectId;
-  openSheet(id?'Edit sub-project':'New sub-project',`<div class="form-group"><label class="form-label">Name</label><input id="sf-n" class="form-input" placeholder="e.g. Phase 1 — Planning" value="${esc(s?.name||'')}"></div><div class="form-row"><div class="form-group"><label class="form-label">Deadline</label><input id="sf-dl" class="form-input" type="date" value="${s?.deadline||''}"></div><div class="form-group"><label class="form-label">Status</label>${statusSel('sf-s',s?.status||'not_started')}</div></div><div class="btn-row"><button class="btn-ghost" onclick="closeSheet()">Cancel</button><button class="btn-primary" onclick="saveSub('${id||''}','${pid}')">Save</button></div>`);
+  openSheet(id?'Edit sub-project':'New sub-project',`<div class="form-group"><label class="form-label">Name</label><input id="sf-n" class="form-input" placeholder="e.g. Phase 1 — Planning" value="${esc(s?.name||'')}"></div><div class="form-row"><div class="form-group"><label class="form-label">Due date</label><input id="sf-dl" class="form-input" type="date" value="${s?.dueDate||s?.deadline||''}"></div><div class="form-group"><label class="form-label">Status</label>${statusSel('sf-s',s?.status||'not_started')}</div></div><div class="form-group"><label class="form-label">Assigned to</label><select id="sf-at" class="form-input"><option value="">— Unassigned —</option>${DB.people.map(p=>`<option value="${p.id}"${s?.assignedTo===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Remarks</label><textarea id="sf-rm" class="form-input" placeholder="Optional context for this sub-project">${esc(s?.remarks||'')}</textarea></div><div class="btn-row"><button class="btn-ghost" onclick="closeSheet()">Cancel</button><button class="btn-primary" onclick="saveSub('${id||''}','${pid}')">Save</button></div>`);
 }
-function saveSub(id,pid){const n=val('sf-n').trim();if(!n)return;const o={name:n,deadline:val('sf-dl'),status:val('sf-s'),projectId:pid};if(id)DB.subs=DB.subs.map(x=>x.id===id?{...x,...o}:x);else DB.subs.push({id:uid(),...o});saveDB();closeSheet();renderProjects();}
+function saveSub(id,pid){const n=val('sf-n').trim();if(!n)return;const due=val('sf-dl');const o={name:n,dueDate:due,deadline:due,status:val('sf-s'),assignedTo:val('sf-at'),remarks:val('sf-rm').trim(),projectId:pid};if(id)DB.subs=DB.subs.map(x=>x.id===id?{...x,...o}:x);else DB.subs.push({id:uid(),...o});saveDB();closeSheet();renderProjects();}
 
 function openTaskForm(projectId,subProjectId,id){
   const t=id?DB.tasks.find(x=>x.id===id):null;const pid=t?.projectId||projectId;const sid=t?.subProjectId||(subProjectId||'');
@@ -338,13 +355,13 @@ function asnList(blds,asgn){if(!blds.length)return`<div style="padding:16px;font
 function filAssign(pid){const q=val('as-srch').toLowerCase();const fil=DB.buildings.filter(b=>!q||b.name.toLowerCase().includes(q)||b.city.toLowerCase().includes(q));const chk=new Set([...document.querySelectorAll('#as-list input:checked')].map(c=>c.value));document.getElementById('as-list').innerHTML=asnList(fil,chk);}
 function updAsnCnt(){const n=document.querySelectorAll('#as-list input:checked').length;const e=document.getElementById('as-cnt');if(e)e.textContent=`${n} of ${DB.buildings.length} selected`;}
 function togAllAssign(){const cbs=document.querySelectorAll('#as-list input[type=checkbox]');const all=[...cbs].every(c=>c.checked);cbs.forEach(c=>c.checked=!all);updAsnCnt();}
-function saveAssign(pid){const sel=[...document.querySelectorAll('#as-list input:checked')].map(c=>c.value);const cleaned=DB.pb.filter(r=>r.projectId!==pid);const rows=sel.map(bid=>{const ex=DB.pb.find(r=>r.projectId===pid&&r.buildingId===bid);return ex||{id:uid(),projectId:pid,buildingId:bid,status:'not_started',remarks:''};});DB.pb=[...cleaned,...rows];saveDB();closeSheet();renderProjects();}
+function saveAssign(pid){const sel=[...document.querySelectorAll('#as-list input:checked')].map(c=>c.value);const cleaned=DB.pb.filter(r=>r.projectId!==pid);const rows=sel.map(bid=>{const ex=DB.pb.find(r=>r.projectId===pid&&r.buildingId===bid);return ex||{id:uid(),projectId:pid,buildingId:bid,status:'not_started',remarks:'',assignedTo:'',dueDate:''};});DB.pb=[...cleaned,...rows];saveDB();closeSheet();renderProjects();}
 
 function openPBStatus(rid){
   const r=DB.pb.find(x=>x.id===rid);const b=DB.buildings.find(x=>x.id===r?.buildingId);if(!r||!b)return;
-  openSheet('Update building status',`<div style="font-size:13px;color:#475569;margin-bottom:14px;padding:10px 12px;background:#F8FAFC;border-radius:9px;border:1px solid #E2E8F0">📍 <strong>${esc(b.name)}</strong>${b.city?`, ${esc(b.city)}`:''}</div><div class="form-group"><label class="form-label">Status</label>${statusSel('pb-st',r.status,BS)}</div><div class="form-group"><label class="form-label">Remarks (shown in daily digest)</label><textarea id="pb-rm" class="form-input">${esc(r.remarks||'')}</textarea></div><div class="btn-row"><button class="btn-ghost" onclick="closeSheet()">Cancel</button><button class="btn-primary" onclick="savePBS('${rid}')">Save</button></div>`);
+  openSheet('Update building status',`<div style="font-size:13px;color:#475569;margin-bottom:14px;padding:10px 12px;background:#F8FAFC;border-radius:9px;border:1px solid #E2E8F0">📍 <strong>${esc(b.name)}</strong>${b.city?`, ${esc(b.city)}`:''}</div><div class="form-row"><div class="form-group"><label class="form-label">Status</label>${statusSel('pb-st',r.status,BS)}</div><div class="form-group"><label class="form-label">Due date</label><input id="pb-dd" class="form-input" type="date" value="${r.dueDate||''}"></div></div><div class="form-group"><label class="form-label">Assigned to</label><select id="pb-at" class="form-input"><option value="">— Unassigned —</option>${DB.people.map(p=>`<option value="${p.id}"${r.assignedTo===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Remarks (shown in daily digest)</label><textarea id="pb-rm" class="form-input">${esc(r.remarks||'')}</textarea></div><div class="btn-row"><button class="btn-ghost" onclick="closeSheet()">Cancel</button><button class="btn-primary" onclick="savePBS('${rid}')">Save</button></div>`);
 }
-function savePBS(rid){DB.pb=DB.pb.map(r=>r.id===rid?{...r,status:val('pb-st'),remarks:val('pb-rm').trim()}:r);saveDB();closeSheet();renderProjects();}
+function savePBS(rid){DB.pb=DB.pb.map(r=>r.id===rid?{...r,status:val('pb-st'),dueDate:val('pb-dd'),assignedTo:val('pb-at'),remarks:val('pb-rm').trim()}:r);saveDB();closeSheet();renderProjects();}
 
 // DIGEST
 const dMsgs={};
@@ -357,7 +374,7 @@ function bldMsg(person){
     msg+=`\n━━━━━━━━━━━━━━━━━━\n📁 *${proj.name}*\n`;
     if(proj.deadline)msg+=`   Deadline: ${fd(proj.deadline)}\n`;
     const pbs=DB.pb.filter(r=>r.projectId===pid);
-    if(pbs.length){msg+=`\n🏢 *Building Status (${pbs.length} buildings):*\n`;pbs.forEach(r=>{const bl=DB.buildings.find(b=>b.id===r.buildingId);if(!bl)return;msg+=`   • ${bl.name}, ${bl.city} → ${BS[r.status]?.l||r.status}\n`;if(r.remarks)msg+=`     ↳ ${r.remarks}\n`;});}
+    if(pbs.length){msg+=`\n🏢 *Building Status (${pbs.length} buildings):*\n`;pbs.forEach(r=>{const bl=DB.buildings.find(b=>b.id===r.buildingId);if(!bl)return;const owner=DB.people.find(p=>p.id===r.assignedTo);msg+=`   • ${bl.name}, ${bl.city} → ${BS[r.status]?.l||r.status}\n`;if(r.dueDate)msg+=`     Due: ${fd(r.dueDate)}\n`;if(owner)msg+=`     Owner: ${owner.name}\n`;if(r.remarks)msg+=`     ↳ ${r.remarks}\n`;});}
     msg+=`\n📋 *Your tasks:*\n`;
     tasks.forEach(t=>{const od=isOD(t.dueDate,t.status);msg+=`\n   ${od?'⚠️':'•'} *${t.title}*\n`;msg+=`      Status: ${TS[t.status]?.l||t.status}${od?' — OVERDUE':''}\n`;if(t.dueDate)msg+=`      Due: ${fd(t.dueDate)}\n`;if(t.notes)msg+=`      Note: ${t.notes}\n`;const deps=(t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');if(deps.length)msg+=`      ⛓ Awaiting: ${deps.map(d=>d.title).join(', ')}\n`;});
   });
