@@ -286,6 +286,7 @@ function renderProjects(){
     const pct=allT.length?Math.round(allT.filter(t=>t.status==='done').length/allT.length*100):0;
     const hasOD=allT.some(t=>isOD(t.dueDate,t.status));
     const pbs=DB.pb.filter(r=>r.projectId===proj.id).map(r=>({...r,b:DB.buildings.find(b=>b.id===r.buildingId)})).filter(r=>r.b);
+    const sortedPbs=[...pbs].sort((a,b)=>{const aod=isOD(a.dueDate,a.status)?1:0;const bod=isOD(b.dueDate,b.status)?1:0;if(aod!==bod)return bod-aod;const ad=a.dueDate||'9999-12-31';const bd=b.dueDate||'9999-12-31';if(ad!==bd)return ad.localeCompare(bd);return (a.b?.name||'').localeCompare(b.b?.name||'');});
     const bDone=pbs.filter(r=>r.status==='done').length;
     const isExp=!!expP[proj.id];
     h+=`<div class="card${hasOD?' danger-border':''}${isExp?' expanded':''}">
@@ -309,7 +310,7 @@ function renderProjects(){
         </div>`;
       if(pbs.length){
         h+=`<div style="font-size:11px;font-weight:600;color:#64748B;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em">Buildings (${pbs.length})</div>`;
-        pbs.forEach(r=>{const bAssignee=DB.people.find(p=>p.id===r.assignedTo);const bOverdue=isOD(r.dueDate,r.status);h+=`<div class="bldg-pb-row" onclick="openPBStatus('${r.id}')"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(r.b.name)} <span style="font-size:11px;color:#94A3B8;font-weight:400">— ${esc(r.b.city)}${r.b.centerCode?` · ${esc(r.b.centerCode)}`:''}</span></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">${r.dueDate?`<span style="font-size:11px;color:${bOverdue?'#DC2626':'#94A3B8'};font-weight:${bOverdue?600:400}">${bOverdue?'⚠ ':''}${fd(r.dueDate)}</span>`:''}${bAssignee?av(bAssignee.name,bAssignee.color,18):''}</div>${r.remarks?`<div style="font-size:11px;color:#64748B;margin-top:3px;font-style:italic;line-height:1.4">${esc(r.remarks)}</div>`:''}</div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${bdg(r.status,BS)}<span style="font-size:11px;color:#94A3B8">✎</span></div></div>`;});
+        sortedPbs.forEach(r=>{const bAssignee=DB.people.find(p=>p.id===r.assignedTo);const bOverdue=isOD(r.dueDate,r.status);h+=`<div class="bldg-pb-row" onclick="openPBStatus('${r.id}')"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(r.b.name)} <span style="font-size:11px;color:#94A3B8;font-weight:400">— ${esc(r.b.city)}${r.b.centerCode?` · ${esc(r.b.centerCode)}`:''}</span></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">${r.dueDate?`<span style="font-size:11px;color:${bOverdue?'#DC2626':'#94A3B8'};font-weight:${bOverdue?600:400}">${bOverdue?'⚠ ':''}${fd(r.dueDate)}</span>`:''}${bAssignee?av(bAssignee.name,bAssignee.color,18):''}</div>${r.remarks?`<div style="font-size:11px;color:#64748B;margin-top:3px;font-style:italic;line-height:1.4">${esc(r.remarks)}</div>`:''}</div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${bdg(r.status,BS)}<span style="font-size:11px;color:#94A3B8">✎</span></div></div>`;});
         h+=`<div style="margin-bottom:10px"></div>`;
       }
       subs.forEach(sub=>{
@@ -394,6 +395,7 @@ function bldMsg(person){
   msg+=`\n━━━━━━━━━━━━━━━━━━\n📊 *${mt.length} pending task${mt.length!==1?'s':''}*`;if(od)msg+=` · *${od} overdue ⚠️*`;return msg;
 }
 function renderDigest(){
+  Object.keys(dMsgs).forEach(k=>delete dMsgs[k]);
   const dig=DB.people.map(p=>({person:p,msg:bldMsg(p)})).filter(x=>x.msg);
   let h=`<div style="margin-bottom:16px"><div style="font-size:19px;font-weight:700">Daily Digest</div><div style="font-size:12px;color:#94A3B8;margin-top:2px">${nowFull()}</div></div>`;
   if(!dig.length)h+=`<div style="text-align:center;padding:50px 20px;background:#F8FAFC;border-radius:16px"><div style="font-size:36px;margin-bottom:10px">🎉</div><div style="font-size:15px;font-weight:500;color:#475569;margin-bottom:4px">All clear!</div><div style="font-size:13px;color:#94A3B8">No pending tasks assigned to anyone.</div></div>`;
