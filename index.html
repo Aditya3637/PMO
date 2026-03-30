@@ -36,9 +36,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .amsg.err{background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.25);color:#fca5a5}
 .amsg.ok{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#6ee7b7}
 .auth-step{transition:opacity .2s}
-.otp-digits{display:flex;gap:10px;justify-content:center;margin:20px 0}
-.otp-digit{width:48px;height:56px;border-radius:12px;border:1px solid var(--bdr2);background:var(--glass2);color:var(--txt);font-size:24px;font-weight:700;text-align:center;outline:none;transition:border-color .2s}
-.otp-digit:focus{border-color:var(--ind-l);background:var(--glass3);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
 
 /* INPUTS */
 .gi{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:14px;outline:none;transition:border-color .2s,background .2s;margin-bottom:11px}
@@ -203,37 +200,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="auth-logo-brand">Taskora</div>
     <div class="auth-logo-tag">Project Intelligence Platform</div>
 
-    <!-- Step 1: Enter email -->
-    <div id="auth-step1" class="auth-step">
-      <div style="font-size:15px;font-weight:600;color:var(--txt);margin-bottom:6px">Sign in to your account</div>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:22px;line-height:1.6">Enter your email and we'll send you a sign-in link. Works for new and existing accounts.</div>
-      <div id="amsg"></div>
-      <input class="gi" id="auth-email" type="email" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')doSendLink()"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" id="link-send-btn" onclick="doSendLink()">Send sign-in link →</button>
+    <!-- Sign in / Sign up tabs -->
+    <div style="display:flex;background:rgba(255,255,255,.06);border-radius:11px;padding:4px;margin-bottom:26px">
+      <button id="tab-si" onclick="swTab('si')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:var(--ind);color:#fff">Sign in</button>
+      <button id="tab-su" onclick="swTab('su')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;background:transparent;color:var(--txt2)">Create account</button>
     </div>
 
-    <!-- Step 2: Waiting for click -->
-    <div id="auth-step2" class="auth-step" style="display:none">
-      <div style="text-align:center;padding:10px 0">
-        <div style="font-size:52px;margin-bottom:16px">📧</div>
-        <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:10px">Check your inbox</div>
-        <div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:6px">
-          We sent a sign-in link to<br>
-          <strong id="link-email-display" style="color:var(--ind-l)"></strong>
-        </div>
-        <div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:24px">
-          Open the email and tap <strong style="color:var(--txt)">Sign in</strong>.<br>This page will update automatically.
-        </div>
-        <!-- Animated waiting indicator -->
-        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;color:var(--txt3);font-size:12px">
-          <div class="spin" style="width:16px;height:16px;border-width:2px"></div>
-          Waiting for you to click the link…
-        </div>
-        <div id="amsg2"></div>
-        <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Didn't get it? Check your spam folder, or</div>
-        <button onclick="doSendLink(true)" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--ind-l);cursor:pointer;font-size:13px;font-weight:500;padding:8px 18px;width:100%">Resend link</button>
-        <button onclick="backToEmail()" style="width:100%;margin-top:10px;padding:8px;background:none;border:none;color:var(--txt3);font-size:12px;cursor:pointer">← Use a different email</button>
-      </div>
+    <div id="amsg"></div>
+
+    <!-- Sign in form -->
+    <div id="form-si">
+      <input class="gi" id="si-em" type="email" placeholder="Email address" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('si-pw').focus()"/>
+      <input class="gi" id="si-pw" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doSI()"/>
+      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSI()">Sign in →</button>
+    </div>
+
+    <!-- Sign up form -->
+    <div id="form-su" style="display:none">
+      <input class="gi" id="su-em" type="email" placeholder="Email address" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('su-pw').focus()"/>
+      <input class="gi" id="su-pw" type="password" placeholder="Password (min 8 characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSU()"/>
+      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSU()">Create account →</button>
     </div>
   </div>
 </div>
@@ -328,43 +314,41 @@ async function load(){
 }
 async function del(tbl,id){ss('sy');const r=await SB.from(tbl).delete().eq('id',id).eq('user_id',U.id);ss(r.error?'er':'ok');return r;}
 
-// ── AUTH — Magic Link ─────────────────────────────────────────────────────────
-let _authEmail = '';
-
-function amsg(m,ok=false,slot='amsg'){
-  const el=document.getElementById(slot);
-  if(el) el.innerHTML=`<div class="amsg ${ok?'ok':'err'}">${m}</div>`;
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function amsg(m,ok=false){
+  const el=document.getElementById('amsg');
+  if(el)el.innerHTML=`<div class="amsg ${ok?'ok':'err'}">${m}</div>`;
 }
-function clearMsg(slot='amsg'){const el=document.getElementById(slot);if(el)el.innerHTML='';}
-
-async function doSendLink(resend=false){
-  const email=(val('auth-email')||_authEmail).trim().toLowerCase();
-  if(!email||!email.includes('@')){amsg('Please enter a valid email address.');return;}
-  _authEmail=email;
-  const btn=document.getElementById('link-send-btn');
-  if(btn){btn.disabled=true;btn.textContent='Sending…';}
-  clearMsg();clearMsg('amsg2');
-  const redirectTo=window.location.origin+window.location.pathname;
-  const{error}=await SB.auth.signInWithOtp({
-    email,
-    options:{shouldCreateUser:true, emailRedirectTo:redirectTo}
-  });
-  if(btn){btn.disabled=false;btn.textContent='Send sign-in link →';}
-  if(error){amsg('Error: '+error.message);return;}
-  // Show step 2
-  document.getElementById('auth-step1').style.display='none';
-  document.getElementById('auth-step2').style.display='';
-  const disp=document.getElementById('link-email-display');
-  if(disp)disp.textContent=email;
-  if(resend)amsg('New link sent! Check your inbox.', true, 'amsg2');
+function swTab(t){
+  const si=t==='si';
+  document.getElementById('tab-si').style.background=si?'var(--ind)':'transparent';
+  document.getElementById('tab-si').style.color=si?'#fff':'var(--txt2)';
+  document.getElementById('tab-su').style.background=si?'transparent':'var(--ind)';
+  document.getElementById('tab-su').style.color=si?'var(--txt2)':'#fff';
+  document.getElementById('form-si').style.display=si?'':'none';
+  document.getElementById('form-su').style.display=si?'none':'';
+  document.getElementById('amsg').innerHTML='';
 }
-
-function backToEmail(){
-  document.getElementById('auth-step2').style.display='none';
-  document.getElementById('auth-step1').style.display='';
-  clearMsg();clearMsg('amsg2');
+async function doSI(){
+  const email=val('si-em').trim(),pass=val('si-pw');
+  if(!email||!pass){amsg('Please enter your email and password.');return;}
+  const btn=document.querySelector('#form-si .btn-p');
+  if(btn){btn.disabled=true;btn.textContent='Signing in…';}
+  const{error}=await SB.auth.signInWithPassword({email,password:pass});
+  if(btn){btn.disabled=false;btn.textContent='Sign in →';}
+  if(error){amsg(error.message==='Invalid login credentials'?'Incorrect email or password.':error.message);}
 }
-
+async function doSU(){
+  const email=val('su-em').trim(),pass=val('su-pw');
+  if(!email||!pass){amsg('Please fill in all fields.');return;}
+  if(pass.length<8){amsg('Password must be at least 8 characters.');return;}
+  const btn=document.querySelector('#form-su .btn-p');
+  if(btn){btn.disabled=true;btn.textContent='Creating account…';}
+  const{error}=await SB.auth.signUp({email,password:pass});
+  if(btn){btn.disabled=false;btn.textContent='Create account →';}
+  if(error){amsg(error.message);}
+  // onAuthStateChange handles redirect on success
+}
 async function doSO(){await SB.auth.signOut();}
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
