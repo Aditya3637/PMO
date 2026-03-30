@@ -241,7 +241,6 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="sb-top">
         <div class="sb-brand">Taskora</div>
         <div class="sb-sub">Project Intelligence</div>
-        <div class="sb-user"><div class="sdot" id="sd"></div><div class="sb-uname" id="uem">—</div></div>
       </div>
       <div class="sb-nav">
         <button class="sb-b active" data-tab="dash"><span class="ic">⌂</span> Home</button>
@@ -250,7 +249,21 @@ tr:hover td{background:rgba(255,255,255,.02)}
         <button class="sb-b" data-tab="people"><span class="ic">👥</span> People</button>
         <button class="sb-b" data-tab="digest"><span class="ic">📤</span> Digest</button>
       </div>
-      <div class="sb-bot"><button class="so-b" onclick="doSO()">Sign out</button></div>
+      <div class="sb-bot">
+        <!-- Profile card -->
+        <div onclick="openProfile()" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:11px;background:var(--glass);border:1px solid var(--bdr);cursor:pointer;margin-bottom:8px;transition:background .15s" onmouseover="this.style.background='var(--glass2)'" onmouseout="this.style.background='var(--glass)'">
+          <div id="sb-av" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--teal));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0">?</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="sb-name">Account</div>
+            <div style="font-size:10px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="uem">—</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <div class="sdot" id="sd"></div>
+            <span style="font-size:11px;color:var(--txt3)">⚙</span>
+          </div>
+        </div>
+        <button class="so-b" onclick="doSO()">↪ Sign out</button>
+      </div>
     </div>
     <div id="content">
       <div id="tab-dash" class="page active"></div>
@@ -265,6 +278,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <button class="nb" data-tab="buildings"><span class="ic">🏢</span><span class="lb">Buildings</span></button>
       <button class="nb" data-tab="people"><span class="ic">👥</span><span class="lb">People</span></button>
       <button class="nb" data-tab="digest"><span class="ic">📤</span><span class="lb">Digest</span></button>
+      <button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Profile</span></button>
     </div>
   </div>
 </div>
@@ -376,10 +390,69 @@ async function boot(){
 }
 async function showApp(){
   document.getElementById('root').style.display='';
-  document.getElementById('uem').textContent=U.email;
+  const email=U.email||'';
+  const initials=email.slice(0,2).toUpperCase();
+  document.getElementById('uem').textContent=email;
+  document.getElementById('sb-name').textContent=U.user_metadata?.display_name||email.split('@')[0]||'Account';
+  document.getElementById('sb-av').textContent=initials;
   await load();
   renderTab(curTab);
   document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────────
+function openProfile(){
+  const email=U.email||'';
+  const displayName=U.user_metadata?.display_name||email.split('@')[0]||'';
+  OS('My Account',`
+    <div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 22px;border-bottom:1px solid var(--bdr);margin-bottom:22px">
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--teal));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin-bottom:12px">${email.slice(0,2).toUpperCase()}</div>
+      <div style="font-size:16px;font-weight:700;color:var(--txt)">${esc(displayName)}</div>
+      <div style="font-size:12px;color:var(--txt3);margin-top:3px">${esc(email)}</div>
+    </div>
+
+    <div class="fg"><label class="fl">Display name</label><input id="pr-dn" class="gi" placeholder="Your name" value="${esc(displayName)}"></div>
+
+    <div style="border-top:1px solid var(--bdr);margin:18px 0"></div>
+
+    <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Change password</div>
+    <div class="fg"><label class="fl">New password</label><input id="pr-pw1" class="gi" type="password" placeholder="Min 8 characters"></div>
+    <div class="fg"><label class="fl">Confirm new password</label><input id="pr-pw2" class="gi" type="password" placeholder="Repeat password"></div>
+
+    <div id="pr-msg"></div>
+
+    <div class="br" style="margin-top:6px">
+      <button class="btn btn-g" onclick="CS()">Cancel</button>
+      <button class="btn btn-p" onclick="saveProfile()">Save changes</button>
+    </div>
+    <div style="border-top:1px solid var(--bdr);margin-top:22px;padding-top:16px">
+      <button onclick="doSO()" style="width:100%;padding:11px;border-radius:var(--r-sm);background:rgba(244,63,94,.08);color:#f87171;border:1px solid rgba(244,63,94,.18);font-size:13px;font-weight:600;cursor:pointer">↪ Sign out of Taskora</button>
+    </div>`);
+}
+
+async function saveProfile(){
+  const dn=val('pr-dn').trim();
+  const pw1=val('pr-pw1');const pw2=val('pr-pw2');
+  const msgEl=document.getElementById('pr-msg');
+  const showMsg=(m,ok=false)=>{if(msgEl)msgEl.innerHTML=`<div class="amsg ${ok?'ok':'err'}" style="margin-bottom:0">${m}</div>`;};
+  let changed=false;
+  // Update display name
+  if(dn){
+    const{error}=await SB.auth.updateUser({data:{display_name:dn}});
+    if(error){showMsg('Error updating name: '+error.message);return;}
+    document.getElementById('sb-name').textContent=dn;
+    changed=true;
+  }
+  // Update password
+  if(pw1||pw2){
+    if(pw1!==pw2){showMsg('Passwords do not match.');return;}
+    if(pw1.length<8){showMsg('Password must be at least 8 characters.');return;}
+    const{error}=await SB.auth.updateUser({password:pw1});
+    if(error){showMsg('Error updating password: '+error.message);return;}
+    changed=true;
+  }
+  if(changed){showMsg('Changes saved successfully!',true);}
+  else{showMsg('No changes to save.');}
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────────
