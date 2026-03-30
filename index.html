@@ -4,9 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-title" content="SmartWorks"/>
+<meta name="apple-mobile-web-app-title" content="Taskora"/>
 <meta name="theme-color" content="#0f0f1a"/>
-<title>SmartWorks PMS</title>
+<title>Taskora</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{--ind:#6366f1;--ind-d:#4f46e5;--ind-l:#818cf8;--teal:#14b8a6;--rose:#f43f5e;--amb:#f59e0b;--grn:#10b981;--bg:#0f0f1a;--bg2:#1a1a2e;--glass:rgba(255,255,255,.05);--glass2:rgba(255,255,255,.08);--glass3:rgba(255,255,255,.12);--bdr:rgba(255,255,255,.1);--bdr2:rgba(255,255,255,.15);--txt:#f1f5f9;--txt2:#94a3b8;--txt3:#64748b;--r:14px;--r-sm:10px;--sh:0 8px 32px rgba(0,0,0,.4)}
@@ -196,41 +196,44 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </head>
 <body>
 
-<div id="ls"><div class="spin"></div><div class="lb">SmartWorks PMS</div></div>
+<div id="ls"><div class="spin"></div><div class="lb">Taskora</div></div>
 
 <div id="auth-screen" style="display:none">
   <div class="auth-card">
-    <div class="auth-logo-brand">SmartWorks</div>
-    <div class="auth-logo-tag">Chairman's Office · Project Intelligence</div>
+    <div class="auth-logo-brand">Taskora</div>
+    <div class="auth-logo-tag">Project Intelligence Platform</div>
 
     <!-- Step 1: Enter email -->
     <div id="auth-step1" class="auth-step">
       <div style="font-size:15px;font-weight:600;color:var(--txt);margin-bottom:6px">Sign in to your account</div>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:22px">We'll send a one-time code to your email. No password needed.</div>
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:22px;line-height:1.6">Enter your email and we'll send you a sign-in link. Works for new and existing accounts.</div>
       <div id="amsg"></div>
-      <input class="gi" id="auth-email" type="email" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')doSendOTP()"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" id="otp-send-btn" onclick="doSendOTP()">Send sign-in code →</button>
+      <input class="gi" id="auth-email" type="email" placeholder="your@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')doSendLink()"/>
+      <button class="btn btn-p" style="width:100%;margin-top:4px" id="link-send-btn" onclick="doSendLink()">Send sign-in link →</button>
     </div>
 
-    <!-- Step 2: Enter OTP -->
+    <!-- Step 2: Waiting for click -->
     <div id="auth-step2" class="auth-step" style="display:none">
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:36px;margin-bottom:12px">📬</div>
-        <div style="font-size:15px;font-weight:600;color:var(--txt);margin-bottom:6px">Check your email</div>
-        <div style="font-size:13px;color:var(--txt2);line-height:1.6">We sent a 6-digit code to<br><strong id="otp-email-display" style="color:var(--txt)"></strong></div>
+      <div style="text-align:center;padding:10px 0">
+        <div style="font-size:52px;margin-bottom:16px">📧</div>
+        <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:10px">Check your inbox</div>
+        <div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:6px">
+          We sent a sign-in link to<br>
+          <strong id="link-email-display" style="color:var(--ind-l)"></strong>
+        </div>
+        <div style="font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:24px">
+          Open the email and tap <strong style="color:var(--txt)">Sign in</strong>.<br>This page will update automatically.
+        </div>
+        <!-- Animated waiting indicator -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;color:var(--txt3);font-size:12px">
+          <div class="spin" style="width:16px;height:16px;border-width:2px"></div>
+          Waiting for you to click the link…
+        </div>
+        <div id="amsg2"></div>
+        <div style="font-size:12px;color:var(--txt3);margin-bottom:12px">Didn't get it? Check your spam folder, or</div>
+        <button onclick="doSendLink(true)" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--ind-l);cursor:pointer;font-size:13px;font-weight:500;padding:8px 18px;width:100%">Resend link</button>
+        <button onclick="backToEmail()" style="width:100%;margin-top:10px;padding:8px;background:none;border:none;color:var(--txt3);font-size:12px;cursor:pointer">← Use a different email</button>
       </div>
-      <div id="amsg2"></div>
-      <div class="otp-digits">
-        <input class="otp-digit" id="otp0" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(0,this)" onkeydown="otpKey(0,event)"/>
-        <input class="otp-digit" id="otp1" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(1,this)" onkeydown="otpKey(1,event)"/>
-        <input class="otp-digit" id="otp2" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(2,this)" onkeydown="otpKey(2,event)"/>
-        <input class="otp-digit" id="otp3" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(3,this)" onkeydown="otpKey(3,event)"/>
-        <input class="otp-digit" id="otp4" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(4,this)" onkeydown="otpKey(4,event)"/>
-        <input class="otp-digit" id="otp5" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="otpInput(5,this)" onkeydown="otpKey(5,event)"/>
-      </div>
-      <button class="btn btn-p" style="width:100%" id="otp-verify-btn" onclick="doVerifyOTP()">Verify & sign in →</button>
-      <button onclick="backToEmail()" style="width:100%;margin-top:10px;padding:10px;background:none;border:none;color:var(--txt2);font-size:13px;cursor:pointer">← Use a different email</button>
-      <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--txt3)">Didn't receive it? Check spam, or <button onclick="doSendOTP(true)" style="background:none;border:none;color:var(--ind-l);cursor:pointer;font-size:12px;font-weight:500">resend code</button></div>
     </div>
   </div>
 </div>
@@ -239,8 +242,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
   <div id="app">
     <div id="sb">
       <div class="sb-top">
-        <div class="sb-brand">SmartWorks</div>
-        <div class="sb-sub">Chairman's Office PMS</div>
+        <div class="sb-brand">Taskora</div>
+        <div class="sb-sub">Project Intelligence</div>
         <div class="sb-user"><div class="sdot" id="sd"></div><div class="sb-uname" id="uem">—</div></div>
       </div>
       <div class="sb-nav">
@@ -325,79 +328,41 @@ async function load(){
 }
 async function del(tbl,id){ss('sy');const r=await SB.from(tbl).delete().eq('id',id).eq('user_id',U.id);ss(r.error?'er':'ok');return r;}
 
-// ── AUTH — Magic Link OTP ─────────────────────────────────────────────────────
-let _otpEmail = '';
+// ── AUTH — Magic Link ─────────────────────────────────────────────────────────
+let _authEmail = '';
 
 function amsg(m,ok=false,slot='amsg'){
   const el=document.getElementById(slot);
   if(el) el.innerHTML=`<div class="amsg ${ok?'ok':'err'}">${m}</div>`;
 }
-function clearMsg(slot='amsg'){
-  const el=document.getElementById(slot);if(el)el.innerHTML='';
-}
+function clearMsg(slot='amsg'){const el=document.getElementById(slot);if(el)el.innerHTML='';}
 
-async function doSendOTP(resend=false){
-  const email=(val('auth-email')||_otpEmail).trim().toLowerCase();
+async function doSendLink(resend=false){
+  const email=(val('auth-email')||_authEmail).trim().toLowerCase();
   if(!email||!email.includes('@')){amsg('Please enter a valid email address.');return;}
-  _otpEmail=email;
-  const btn=document.getElementById('otp-send-btn');
+  _authEmail=email;
+  const btn=document.getElementById('link-send-btn');
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   clearMsg();clearMsg('amsg2');
-  const{error}=await SB.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
-  if(btn){btn.disabled=false;btn.textContent='Send sign-in code →';}
+  const redirectTo=window.location.origin+window.location.pathname;
+  const{error}=await SB.auth.signInWithOtp({
+    email,
+    options:{shouldCreateUser:true, emailRedirectTo:redirectTo}
+  });
+  if(btn){btn.disabled=false;btn.textContent='Send sign-in link →';}
   if(error){amsg('Error: '+error.message);return;}
-  // show step 2
+  // Show step 2
   document.getElementById('auth-step1').style.display='none';
   document.getElementById('auth-step2').style.display='';
-  const disp=document.getElementById('otp-email-display');
+  const disp=document.getElementById('link-email-display');
   if(disp)disp.textContent=email;
-  // clear OTP fields and focus first
-  for(let i=0;i<6;i++){const d=document.getElementById('otp'+i);if(d)d.value='';}
-  setTimeout(()=>{const d=document.getElementById('otp0');if(d)d.focus();},100);
-  if(resend)amsg('New code sent! Check your inbox.', true, 'amsg2');
-}
-
-function otpInput(i,el){
-  // only keep digits
-  el.value=el.value.replace(/\D/g,'').slice(-1);
-  if(el.value&&i<5){const next=document.getElementById('otp'+(i+1));if(next)next.focus();}
-  // auto-verify when all 6 filled
-  const code=[...Array(6)].map((_,j)=>document.getElementById('otp'+j)?.value||'').join('');
-  if(code.length===6)doVerifyOTP();
-}
-function otpKey(i,e){
-  if(e.key==='Backspace'&&!e.target.value&&i>0){
-    const prev=document.getElementById('otp'+(i-1));if(prev){prev.focus();prev.value='';}
-  }
-  if(e.key==='v'&&(e.ctrlKey||e.metaKey)){
-    // paste handler
-    navigator.clipboard.readText().then(text=>{
-      const digits=text.replace(/\D/g,'').slice(0,6);
-      digits.split('').forEach((d,j)=>{const el=document.getElementById('otp'+j);if(el)el.value=d;});
-      if(digits.length===6)setTimeout(doVerifyOTP,50);
-    }).catch(()=>{});
-  }
-}
-
-async function doVerifyOTP(){
-  const code=[...Array(6)].map((_,i)=>document.getElementById('otp'+i)?.value||'').join('');
-  if(code.length<6){amsg('Please enter all 6 digits of the code.',false,'amsg2');return;}
-  const btn=document.getElementById('otp-verify-btn');
-  if(btn){btn.disabled=true;btn.textContent='Verifying…';}
-  clearMsg('amsg2');
-  const{data,error}=await SB.auth.verifyOtp({email:_otpEmail,token:code,type:'email'});
-  if(error){
-    if(btn){btn.disabled=false;btn.textContent='Verify & sign in →';}
-    amsg('Invalid or expired code. Please try again.',false,'amsg2');
-    return;
-  }
-  // success — onAuthStateChange handles the rest
+  if(resend)amsg('New link sent! Check your inbox.', true, 'amsg2');
 }
 
 function backToEmail(){
   document.getElementById('auth-step2').style.display='none';
   document.getElementById('auth-step1').style.display='';
-  clearMsg();
+  clearMsg();clearMsg('amsg2');
 }
 
 async function doSO(){await SB.auth.signOut();}
@@ -441,7 +406,7 @@ function rDash(){
   const pnd=DB.tasks.filter(t=>t.status!=='done');
   const ov=pnd.filter(t=>isOD(t.dueDate,t.status));
   const dt=pnd.filter(t=>t.dueDate===td());
-  let h=`<div class="ph"><div><div class="pt">Chairman's Office</div><div class="ps">${nowFull()}</div></div></div>
+  let h=`<div class="ph"><div><div class="pt">Taskora</div><div class="ps">${nowFull()}</div></div></div>
   <div class="sg">
     <div class="sc" style="--ac:#818cf8"><div class="sn">${DB.projects.filter(p=>p.status!=='done').length}</div><div class="sl">Active projects</div></div>
     <div class="sc" style="--ac:#2dd4bf"><div class="sn">${DB.buildings.length}</div><div class="sl">Buildings</div></div>
@@ -450,7 +415,7 @@ function rDash(){
   </div>`;
   if(dt.length){h+=`<div style="font-size:13px;font-weight:600;margin-bottom:10px">Due today (${dt.length})</div>`;dt.forEach(t=>{const pr=DB.projects.find(p=>p.id===t.projectId);const pe=DB.people.find(p=>p.id===t.assignedTo);h+=`<div class="gc" style="border-left:3px solid ${pr?.color||'#6366f1'};padding-left:13px"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">${esc(t.title)}</div><div style="font-size:11px;color:var(--txt2);margin-top:2px">${esc(pr?.name||'')}</div></div><div style="display:flex;align-items:center;gap:6px">${pe?av(pe.name,pe.color,22):''}${bdg(t.status)}</div></div></div>`;});}
   if(ov.length){h+=`<div style="font-size:13px;font-weight:600;color:var(--rose);margin-bottom:10px;margin-top:20px">⚠ Overdue (${ov.length})</div>`;ov.slice(0,5).forEach(t=>{const pr=DB.projects.find(p=>p.id===t.projectId);const pe=DB.people.find(p=>p.id===t.assignedTo);h+=`<div class="gc dng" style="border-left:3px solid var(--rose);padding-left:13px"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between"><div><div style="font-size:13px;font-weight:500;color:#fca5a5">${esc(t.title)}</div><div style="font-size:11px;color:var(--rose);margin-top:2px">${fd(t.dueDate)} · ${esc(pr?.name||'')}</div></div>${pe?av(pe.name,pe.color,22):''}</div></div>`;});}
-  if(!DB.projects.length)h+=`<div class="es"><span class="em">🏗</span><div class="et">Welcome to SmartWorks PMS</div><div class="ed">Start by adding People, then Buildings, then Projects</div></div>`;
+  if(!DB.projects.length)h+=`<div class="es"><span class="em">🏗</span><div class="et">Welcome to Taskora</div><div class="ed">Start by adding People, then Buildings, then Projects</div></div>`;
   document.getElementById('tab-dash').innerHTML=h;
 }
 
