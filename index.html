@@ -380,8 +380,8 @@ async function load() {
     DB.people     = p.data||[];
     DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium'}));
     DB.milestones = (ms.data||[]).map(x => ({...x, projectId:x.project_id}));
-    DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[]}));
-    DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion}));
+    DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, buildingRefId:x.project_building_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[]}));
+    DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion, secondaryOwnerId:x.secondary_owner_id}));
     const ed = {};
     (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
     DB.de = ed;
@@ -1259,26 +1259,149 @@ async function svAsn(pid) {
 }
 
 function oPBS(rid) {
-  const r = DB.pb.find(x => x.id===rid);
-  const b = DB.buildings.find(x => x.id===r?.buildingId);
+  const r  = DB.pb.find(x => x.id===rid);
+  const b  = DB.buildings.find(x => x.id===r?.buildingId);
   if (!r||!b) return;
-  let h = '<div style="font-size:13px;color:var(--txt2);margin-bottom:14px;padding:12px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">📍 <strong style="color:var(--txt)">'+esc(b.name)+'</strong>'+(b.city?', '+esc(b.city):'')+( b.code?' · <span style="font-family:monospace">'+esc(b.code)+'</span>':'')+'</div>';
-  h += '<div class="fg"><label class="fl">Status at this building</label>'+selOpts('pb-st',r.status,BS)+'</div>';
+
+  const bTasks  = DB.tasks.filter(t => t.buildingRefId===rid);
+  const secOwner = DB.people.find(p => p.id===r.secondaryOwnerId);
+
+  // Building header
+  let h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">';
+  h += '<div style="font-size:20px">📍</div>';
+  h += '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--txt)">'+esc(b.name)+'</div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:1px">'+esc(b.city||'')+(b.code?' · '+esc(b.code):'')+'</div></div>';
+  h += bdg(r.status,BS)+'</div>';
+
+  // Row 1: Status + Secondary owner
+  h += '<div class="fr">';
+  h += '<div class="fg"><label class="fl">Status</label>'+selOpts('pb-st',r.status,BS)+'</div>';
+  h += '<div class="fg"><label class="fl" style="color:var(--teal)">Secondary responsibility holder</label>';
+  h += '<select id="pb-so" class="gi"><option value="">— Unassigned —</option>';
+  h += DB.people.map(p=>'<option value="'+p.id+'"'+(p.id===r.secondaryOwnerId?' selected':'')+'>'+esc(p.name)+(p.role?' ('+esc(p.role)+')':'')+'</option>').join('');
+  h += '</select></div></div>';
+
+  // Target completion date
   h += '<div class="fg" style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.18);border-radius:10px;padding:12px 14px;margin-bottom:14px">';
-  h += '<label class="fl" style="color:var(--teal)">Target completion date</label>';
+  h += '<label class="fl" style="color:var(--teal)">Target completion date for this building</label>';
   h += '<input id="pb-tc" class="gi" type="date" value="'+(r.targetCompletion||'')+'" style="margin-bottom:4px">';
-  h += '<div style="font-size:11px;color:var(--txt3)">The project\'s overall deadline derives from the latest completion date across all buildings.</div>';
+  h += '<div style="font-size:11px;color:var(--txt3)">The project\'s overall end date auto-derives from the latest completion across all buildings.</div>';
   h += '</div>';
-  h += '<div class="fg"><label class="fl">Remarks (shown in digest)</label><textarea id="pb-rm" class="gi" placeholder="e.g. Contractor confirmed. Work starts Monday.">'+esc(r.remarks||'')+'</textarea></div>';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPBS(\''+rid+'\')">Save</button></div>';
-  OS('Update building status', h);
+
+  // Remarks
+  h += '<div class="fg"><label class="fl">Remarks (shown in digest)</label>';
+  h += '<textarea id="pb-rm" class="gi" placeholder="e.g. Contractor confirmed. Work starts Monday.">'+esc(r.remarks||'')+'</textarea></div>';
+
+  // ── TASKS FOR THIS BUILDING ──
+  h += '<div style="border-top:1px solid var(--bdr);padding-top:14px;margin-top:6px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em">Tasks at this building</div>';
+  h += '<button onclick="oBldTF(\''+rid+'\',\''+r.projectId+'\')" class="mb" style="font-size:11px">+ Add task</button>';
+  h += '</div>';
+
+  if (!bTasks.length) {
+    h += '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:10px">No tasks yet for this building.</div>';
+  } else {
+    bTasks.forEach(t => {
+      const pe  = DB.people.find(p => p.id===t.assignedTo);
+      const od  = isOD(t.dueDate, t.status);
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(od?'rgba(244,63,94,.07)':'var(--glass)')+';border-radius:8px;border:1px solid '+(od?'rgba(244,63,94,.2)':'var(--bdr)')+';margin-bottom:5px">';
+      h += '<div style="flex:1;min-width:0">';
+      h += '<div style="font-size:13px;font-weight:500">'+esc(t.title)+'</div>';
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px">';
+      h += '<span onclick="cyStBS(\''+t.id+'\',\''+rid+'\')" style="cursor:pointer">'+bdg(t.status)+'</span>';
+      if (t.dueDate) { const dc=od?'var(--rose)':'var(--txt3)'; const fw=od?600:400; h += '<span style="font-size:11px;color:'+dc+';font-weight:'+fw+'">'+(od?'⚠ ':'')+fd(t.dueDate)+'</span>'; }
+      if (pe) h += '<span style="display:flex;align-items:center;gap:4px">'+av(pe.name,pe.color,16)+'<span style="font-size:11px;color:var(--txt2)">'+esc(pe.name.split(' ')[0])+'</span></span>';
+      h += '</div>';
+      if (t.notes) h += '<div style="font-size:11px;color:var(--txt2);margin-top:3px;font-style:italic">'+esc(t.notes)+'</div>';
+      h += '</div>';
+      h += '<div style="display:flex;gap:4px;flex-shrink:0">';
+      h += '<button class="mb" style="font-size:11px;padding:3px 7px" onclick="oBldTF(\''+rid+'\',\''+r.projectId+'\',\''+t.id+'\')">✎</button>';
+      h += '<button class="mb dd" style="font-size:11px;padding:3px 7px" onclick="dBldTsk(\''+t.id+'\',\''+rid+'\')">×</button>';
+      h += '</div></div>';
+    });
+  }
+  h += '</div>';
+
+  h += '<div class="br" style="margin-top:14px"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPBS(\''+rid+'\')">Save</button></div>';
+  OS('Building detail — '+esc(b.name), h, true);
 }
+
 async function svPBS(rid) {
-  const obj = {status:val('pb-st'), remarks:val('pb-rm').trim(), target_completion:val('pb-tc')||null};
+  const obj = {
+    status: val('pb-st'),
+    remarks: val('pb-rm').trim(),
+    target_completion: val('pb-tc')||null,
+    secondary_owner_id: val('pb-so')||null,
+  };
   await SB.from('project_buildings').update(obj).eq('id',rid).eq('user_id',U.id);
-  DB.pb = DB.pb.map(r => r.id===rid ? {...r,...obj,targetCompletion:obj.target_completion} : r);
+  DB.pb = DB.pb.map(r => r.id===rid ? {...r,...obj, targetCompletion:obj.target_completion, secondaryOwnerId:obj.secondary_owner_id} : r);
   CS();
   rProj();
+}
+
+// Add/edit task inside a building
+function oBldTF(rid, pid, id) {
+  const t  = id ? DB.tasks.find(x => x.id===id) : null;
+  const proj = DB.projects.find(p => p.id===pid);
+  const r  = DB.pb.find(x => x.id===rid);
+  const b  = DB.buildings.find(x => x.id===r?.buildingId);
+
+  let h = '<div style="font-size:12px;color:var(--teal);margin-bottom:14px;padding:8px 12px;background:rgba(20,184,166,.07);border-radius:8px;border:1px solid rgba(20,184,166,.15)">📍 '+esc(b?.name||'')+(proj?' · '+esc(proj.name):'')+'</div>';
+  h += '<div class="fg"><label class="fl">Task title</label><input id="btf-ti" class="gi" placeholder="What needs to be done at this building?" value="'+esc(t?.title||'')+'"></div>';
+
+  // Assigned to — pre-populate with secondary owner if set
+  const defAssignee = t?.assignedTo || r?.secondaryOwnerId || '';
+  h += '<div class="fg" style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.18);border-radius:10px;padding:12px 14px;margin-bottom:14px">';
+  h += '<label class="fl" style="color:var(--teal)">Assigned to</label>';
+  h += '<select id="btf-at" class="gi" style="margin-bottom:0"><option value="">— Unassigned —</option>';
+  h += DB.people.map(p=>'<option value="'+p.id+'"'+(p.id===defAssignee?' selected':'')+'>'+esc(p.name)+(p.role?' ('+esc(p.role)+')':'')+'</option>').join('');
+  h += '</select></div>';
+
+  h += '<div class="fg"><label class="fl">Notes</label><textarea id="btf-no" class="gi">'+esc(t?.notes||'')+'</textarea></div>';
+  h += '<div class="fr"><div class="fg"><label class="fl">Status</label>'+selOpts('btf-st',t?.status||'not_started',TS)+'</div>';
+  h += '<div class="fg"><label class="fl">Priority</label>'+selOpts('btf-pr',t?.priority||'medium',PR)+'</div></div>';
+  h += '<div class="fr"><div class="fg"><label class="fl">Due date</label><input id="btf-dd" class="gi" type="date" value="'+(t?.dueDate||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">Follow-up</label><input id="btf-fu" class="gi" type="date" value="'+(t?.followUp||'')+'"></div></div>';
+  h += '<div class="br"><button class="btn btn-g" onclick="oPBS(\''+rid+'\')">← Back</button><button class="btn btn-p" onclick="svBldTsk(\''+( id||'')+'\',\''+pid+'\',\''+rid+'\')">Save task</button></div>';
+  OS((id?'Edit':'Add')+' task — '+esc(b?.name||''), h, true);
+}
+
+async function svBldTsk(id, pid, rid) {
+  const ti = val('btf-ti').trim();
+  if (!ti) return;
+  const obj = {
+    title: ti, notes: val('btf-no').trim(),
+    assigned_to: val('btf-at')||null,
+    status: val('btf-st'), priority: val('btf-pr'),
+    due_date: val('btf-dd')||null, follow_up: val('btf-fu')||null,
+    project_id: pid, project_building_id: rid,
+    sub_project_id: null, depends_on: [],
+  };
+  if (id) {
+    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',U.id);
+    DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj, projectId:pid, buildingRefId:rid, assignedTo:obj.assigned_to, dueDate:obj.due_date, followUp:obj.follow_up} : x);
+  } else {
+    const {data} = await SB.from('tasks').insert({...obj, user_id:U.id}).select().single();
+    if (data) DB.tasks.push({...data, projectId:data.project_id, milestoneId:null, buildingRefId:data.project_building_id, assignedTo:data.assigned_to, dueDate:data.due_date, followUp:data.follow_up, dependsOn:[]});
+  }
+  oPBS(rid); // return to building detail
+}
+
+async function cyStBS(taskId, rid) {
+  const t = DB.tasks.find(x => x.id===taskId);
+  if (!t) return;
+  const i = SCYC.indexOf(t.status);
+  t.status = SCYC[(i+1) % SCYC.length];
+  await SB.from('tasks').update({status:t.status}).eq('id',taskId).eq('user_id',U.id);
+  oPBS(rid);
+}
+
+async function dBldTsk(taskId, rid) {
+  if (!confirm('Delete this task?')) return;
+  await delRow('tasks', taskId);
+  DB.tasks = DB.tasks.filter(t => t.id!==taskId);
+  oPBS(rid);
 }
 
 /* ══════════════════════════════════════════════════════
