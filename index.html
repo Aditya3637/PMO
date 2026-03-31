@@ -459,6 +459,17 @@ async function showApp() {
   document.getElementById('sb-name').textContent = U.user_metadata?.display_name||email.split('@')[0]||'Account';
   document.getElementById('sb-av').textContent = email.slice(0,2).toUpperCase();
   await load();
+
+  // Auto-accept invite: if a people record with this email is still 'pending', mark it accepted
+  // This fires when an invited person signs up and logs in for the first time
+  if (email) {
+    const matched = DB.people.filter(p => p.email && p.email.toLowerCase()===email.toLowerCase() && p.invite_status==='pending');
+    for (const person of matched) {
+      await SB.from('people').update({invite_status:'accepted'}).eq('id', person.id);
+      person.invite_status = 'accepted';
+    }
+  }
+
   renderTab(curTab);
   document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
