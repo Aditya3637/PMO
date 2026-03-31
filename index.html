@@ -352,7 +352,7 @@ const av    = (n,c,sz) => {
 
 /* ── STATE ── */
 let U = null, curTab = 'dash';
-let expP = {}, expS = {}, bSrch = '', bCity = '', bType = '', pFil = 'active';
+let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active';
 let DB = { buildings:[], people:[], projects:[], milestones:[], tasks:[], pb:[], de:{} };
 
 /* ── SYNC ── */
@@ -381,7 +381,7 @@ async function load() {
     DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium'}));
     DB.milestones = (ms.data||[]).map(x => ({...x, projectId:x.project_id}));
     DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[]}));
-    DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id}));
+    DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion}));
     const ed = {};
     (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
     DB.de = ed;
@@ -762,15 +762,26 @@ async function svPpl(id) {
     CS();
     rPpl();
   } else {
-    // send magic link invite
+    // Save person record
     obj.invite_status = 'pending';
     const {data:inserted} = await SB.from('people').insert({...obj, user_id:U.id}).select().single();
     if (inserted) DB.people.push(inserted);
-    // send OTP/magic link so they can sign in
-    await SB.auth.signInWithOtp({email, options:{shouldCreateUser:true, emailRedirectTo:window.location.origin+window.location.pathname}});
     CS();
     rPpl();
-    alert(name+' has been invited. They will receive a sign-in link at '+email+'.');
+    // Open chairman's email client with pre-filled invite
+    const appUrl = window.location.origin + window.location.pathname;
+    const subject = encodeURIComponent("You've been added to Taskora — Founder's Office");
+    const body = encodeURIComponent(
+      "Hi " + name + ",\n\n" +
+      "You've been added to our project management system — Taskora, Founder's Office.\n\n" +
+      "To get started:\n" +
+      "1. Open this link: " + appUrl + "\n" +
+      "2. Click 'Create account'\n" +
+      "3. Sign up using this email address: " + email + "\n\n" +
+      "Once you're in, you'll see the projects and tasks assigned to you.\n\n" +
+      "Regards"
+    );
+    window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
   }
 }
 
@@ -842,6 +853,14 @@ function rProj() {
     const nextMil  = mils.filter(m => m.status!=='done' && m.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline))[0];
     const cardClass = proj.health==='delayed' ? ' red' : proj.health==='at_risk' ? ' amb' : '';
 
+    // derive deadline from building completion dates if no manual deadline set
+    const bDates = pbs.map(r=>r.targetCompletion).filter(Boolean);
+    const derivedDeadline = bDates.length ? bDates.sort().slice(-1)[0] : null;
+    const displayDeadline = proj.deadline || derivedDeadline;
+    const deadlineLabel = proj.deadline ? fd(proj.deadline) : (derivedDeadline ? fd(derivedDeadline)+' ⊕' : null);
+
+    const showGantt = !!ganttP[proj.id];
+
     h += '<div class="gc'+cardClass+(isExp?' exp':'')+'">';
 
     // ── collapsed view ──
@@ -853,7 +872,7 @@ function rProj() {
     h += '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;line-height:1.3;margin-bottom:5px">'+esc(proj.name)+'</div>';
     h += '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'+hBdg(proj.health);
     if (proj.priority!=='medium') h += pBdg(proj.priority);
-    if (proj.deadline) h += '<span style="font-size:11px;color:var(--txt3)">📅 '+fd(proj.deadline)+'</span>';
+    if (deadlineLabel) h += '<span style="font-size:11px;color:var(--txt3)">📅 '+deadlineLabel+(derivedDeadline&&!proj.deadline?' <span title="Auto-calculated from building dates" style="color:var(--teal)">auto</span>':'')+'</span>';
     if (pbs.length)    h += '<span style="font-size:11px;color:var(--teal);background:rgba(20,184,166,.1);border-radius:99px;padding:1px 7px">🏢 '+bDone+'/'+pbs.length+'</span>';
     h += '</div></div>';
     h += '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0">';
@@ -889,7 +908,13 @@ function rProj() {
       h += '<button class="mb" onclick="oAsn(\''+proj.id+'\')">🏢 Buildings</button>';
       h += '<button class="mb" onclick="oPrF(\''+proj.id+'\')">Edit</button>';
       h += '<button class="mb dd" onclick="dPrj(\''+proj.id+'\')">Delete</button>';
+      if (pbs.length) h += '<button class="mb'+(showGantt?' active':'')+'" style="'+(showGantt?'background:rgba(99,102,241,.2);color:var(--ind-l);border-color:rgba(99,102,241,.4)':'')+'" onclick="ganttP[\''+proj.id+'\']=!ganttP[\''+proj.id+'\'];rProj()">📊 '+(showGantt?'List view':'Gantt view')+'</button>';
       h += '</div>';
+
+      // ── GANTT VIEW ──
+      if (showGantt && pbs.length) {
+        h += rGantt(proj, pbs);
+      } else {
 
       // buildings
       if (pbs.length) {
@@ -937,12 +962,90 @@ function rProj() {
           h += tasks.map(t => taskRow(t)).join('');
         });
       }
+      } // end else (list view)
       h += '</div>'; // end expanded
     }
     h += '</div>'; // end card
   });
 
   document.getElementById('tab-projects').innerHTML = h;
+}
+
+// ── GANTT CHART — building-wise ──
+function rGantt(proj, pbs) {
+  const allDates = pbs.map(r => r.targetCompletion).filter(Boolean);
+  if (proj.deadline) allDates.push(proj.deadline);
+  const projStart = (proj.created_at||new Date().toISOString()).slice(0,10);
+  allDates.push(projStart);
+  allDates.push(new Date().toISOString().slice(0,10));
+
+  const sortedDates = [...allDates].sort();
+  const minDate = new Date(sortedDates[0]+'T12:00:00');
+  const maxDate = new Date(sortedDates[sortedDates.length-1]+'T12:00:00');
+  if ((maxDate - minDate) < 30*86400000) maxDate.setDate(maxDate.getDate()+30);
+
+  const totalMs  = maxDate - minDate;
+  const todayMs  = new Date(tday()+'T12:00:00') - minDate;
+  const todayPct = Math.max(0, Math.min(100, (todayMs/totalMs)*100));
+
+  const statusColors = {done:'#10b981', in_progress:'#f59e0b', blocked:'#f43f5e', on_hold:'#fb923c', not_started:'#64748b'};
+
+  const months = [];
+  const cur = new Date(minDate);
+  cur.setDate(1);
+  while (cur <= maxDate) {
+    const pct = ((new Date(cur) - minDate) / totalMs) * 100;
+    months.push({label: cur.toLocaleDateString('en-IN',{month:'short', year:'2-digit'}), pct: Math.max(0,Math.min(98,pct))});
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  let h = '<div style="margin-bottom:16px">';
+  h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">📊 Building Gantt — Completion Timeline</div>';
+
+  h += '<div style="position:relative;height:18px;margin-bottom:8px;margin-left:140px">';
+  months.forEach(m => {
+    h += '<div style="position:absolute;left:'+m.pct+'%;font-size:10px;color:var(--txt3);white-space:nowrap;transform:translateX(-50%)">'+m.label+'</div>';
+  });
+  h += '</div>';
+
+  h += '<div>';
+  pbs.forEach(r => {
+    const b = r.b;
+    const tc = r.targetCompletion;
+    const startMs  = new Date(projStart+'T12:00:00') - minDate;
+    const endMs    = tc ? (new Date(tc+'T12:00:00') - minDate) : null;
+    const startPct = Math.max(0, Math.min(100, (startMs/totalMs)*100));
+    const endPct   = endMs !== null ? Math.max(startPct+3, Math.min(100, (endMs/totalMs)*100)) : startPct+5;
+    const barColor = statusColors[r.status] || '#64748b';
+
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">';
+    h += '<div style="width:132px;flex-shrink:0;font-size:11px;font-weight:500;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;padding-right:8px" title="'+esc(b.name)+'">'+esc(b.name.length>18?b.name.slice(0,17)+'…':b.name)+'</div>';
+    h += '<div style="flex:1;position:relative;height:26px;background:rgba(255,255,255,.04);border-radius:6px;border:1px solid var(--bdr)">';
+    h += '<div style="position:absolute;left:'+startPct+'%;width:'+(endPct-startPct)+'%;height:100%;background:'+barColor+';opacity:'+(r.status==='done'?'1':'.7')+';border-radius:5px;display:flex;align-items:center;padding-left:6px;overflow:hidden">';
+    h += '<span style="font-size:10px;color:#fff;font-weight:600;white-space:nowrap">'+(tc?fd(tc):'No date')+'</span>';
+    h += '</div>';
+    if (todayPct >= 0 && todayPct <= 100) {
+      h += '<div style="position:absolute;left:'+todayPct+'%;top:0;bottom:0;width:2px;background:var(--ind-l);opacity:.9;z-index:2;border-radius:1px"></div>';
+    }
+    h += '</div>';
+    h += bdg(r.status, BS);
+    h += '</div>';
+  });
+
+  if (todayPct >= 0 && todayPct <= 100) {
+    h += '<div style="position:relative;margin-left:140px;height:16px;margin-top:2px">';
+    h += '<div style="position:absolute;left:'+todayPct+'%;transform:translateX(-50%);font-size:10px;color:var(--ind-l);font-weight:600;white-space:nowrap">▲ Today</div>';
+    h += '</div>';
+  }
+
+  const bDates = pbs.map(r=>r.targetCompletion).filter(Boolean);
+  if (bDates.length && !proj.deadline) {
+    const latest = bDates.sort().slice(-1)[0];
+    h += '<div style="margin-top:12px;font-size:11px;color:var(--teal);background:rgba(20,184,166,.08);border-radius:8px;padding:7px 10px;border:1px solid rgba(20,184,166,.15)">⊕ Derived project end: <strong>'+fd(latest)+'</strong> — latest building completion. Use Edit project to set a manual deadline.</div>';
+  }
+
+  h += '</div></div>';
+  return h;
 }
 
 async function cySt(id) {
@@ -1161,14 +1264,19 @@ function oPBS(rid) {
   if (!r||!b) return;
   let h = '<div style="font-size:13px;color:var(--txt2);margin-bottom:14px;padding:12px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">📍 <strong style="color:var(--txt)">'+esc(b.name)+'</strong>'+(b.city?', '+esc(b.city):'')+( b.code?' · <span style="font-family:monospace">'+esc(b.code)+'</span>':'')+'</div>';
   h += '<div class="fg"><label class="fl">Status at this building</label>'+selOpts('pb-st',r.status,BS)+'</div>';
+  h += '<div class="fg" style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.18);border-radius:10px;padding:12px 14px;margin-bottom:14px">';
+  h += '<label class="fl" style="color:var(--teal)">Target completion date</label>';
+  h += '<input id="pb-tc" class="gi" type="date" value="'+(r.targetCompletion||'')+'" style="margin-bottom:4px">';
+  h += '<div style="font-size:11px;color:var(--txt3)">The project\'s overall deadline derives from the latest completion date across all buildings.</div>';
+  h += '</div>';
   h += '<div class="fg"><label class="fl">Remarks (shown in digest)</label><textarea id="pb-rm" class="gi" placeholder="e.g. Contractor confirmed. Work starts Monday.">'+esc(r.remarks||'')+'</textarea></div>';
   h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPBS(\''+rid+'\')">Save</button></div>';
   OS('Update building status', h);
 }
 async function svPBS(rid) {
-  const obj = {status:val('pb-st'), remarks:val('pb-rm').trim()};
+  const obj = {status:val('pb-st'), remarks:val('pb-rm').trim(), target_completion:val('pb-tc')||null};
   await SB.from('project_buildings').update(obj).eq('id',rid).eq('user_id',U.id);
-  DB.pb = DB.pb.map(r => r.id===rid ? {...r,...obj} : r);
+  DB.pb = DB.pb.map(r => r.id===rid ? {...r,...obj,targetCompletion:obj.target_completion} : r);
   CS();
   rProj();
 }
