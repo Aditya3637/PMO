@@ -271,6 +271,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div id="tab-people" class="page"></div>
       <div id="tab-buildings" class="page"></div>
       <div id="tab-digest" class="page"></div>
+      <div id="tab-roles" class="page"></div>
+      <div id="tab-notifications" class="page"></div>
+      <div id="tab-analytics" class="page"></div>
     </div>
 
     <div id="bn">
@@ -352,8 +355,16 @@ const av    = (n,c,sz) => {
 
 /* ── STATE ── */
 let U = null, curTab = 'dash';
+let MY_ROLE = 'super_admin';
+let MY_PERSON_ID = null;
+let CHAIRMAN_UID = null;
 let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active', projView = 'list';
-let DB = { buildings:[], people:[], projects:[], milestones:[], tasks:[], pb:[], de:{} };
+let bulkMode = false, selTasks = new Set();
+let notifCount = 0;
+let DB = {
+  buildings:[], people:[], projects:[], milestones:[], tasks:[],
+  pb:[], de:{}, templates:[], docs:[], notifications:[], schedule:null
+};
 
 /* ── SYNC ── */
 function ss(s) {
@@ -366,8 +377,9 @@ async function load() {
   if (!U) return;
   ss('sy');
   try {
-    const uid = U.id;
-    const [b,p,pr,ms,t,pb,de] = await Promise.all([
+    const uid = CHAIRMAN_UID || U.id;
+    const myUid = U.id;
+    const [b,p,pr,ms,t,pb,de,tpl,docs,notifs,sched] = await Promise.all([
       SB.from('buildings').select('*').eq('user_id',uid).order('serial'),
       SB.from('people').select('*').eq('user_id',uid).order('name'),
       SB.from('projects').select('*').eq('user_id',uid).order('created_at'),
@@ -375,6 +387,10 @@ async function load() {
       SB.from('tasks').select('*').eq('user_id',uid).order('created_at'),
       SB.from('project_buildings').select('*').eq('user_id',uid),
       SB.from('digest_edits').select('*').eq('user_id',uid),
+      SB.from('project_templates').select('*').eq('user_id',CHAIRMAN_UID||U.id).order('created_at'),
+      SB.from('documents').select('*').eq('workspace_id',uid),
+      SB.from('notifications').select('*').eq('for_user_id',myUid).order('created_at',{ascending:false}).limit(50),
+      SB.from('digest_schedule').select('*').eq('chairman_id',CHAIRMAN_UID||U.id).maybeSingle(),
     ]);
     DB.buildings  = (b.data||[]).map(x => ({...x, softHandover:x.soft_handover, hardHandover:x.hard_handover, btype:x.btype||'operational'}));
     DB.people     = p.data||[];
@@ -385,13 +401,19 @@ async function load() {
     const ed = {};
     (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
     DB.de = ed;
+    DB.templates    = tpl.data||[];
+    DB.docs         = docs.data||[];
+    DB.notifications= notifs.data||[];
+    DB.schedule     = sched.data||null;
+    notifCount      = DB.notifications.filter(n=>!n.read).length;
+    updateNotifBadge();
     ss('ok');
   } catch(e) { ss('er'); }
 }
 
 async function delRow(tbl, id) {
   ss('sy');
-  const r = await SB.from(tbl).delete().eq('id',id).eq('user_id',U.id);
+  const r = await SB.from(tbl).delete().eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
   ss(r.error ? 'er' : 'ok');
   return r;
 }
@@ -458,40 +480,119 @@ async function showApp() {
   document.getElementById('uem').textContent = email;
   document.getElementById('sb-name').textContent = U.user_metadata?.display_name||email.split('@')[0]||'Account';
   document.getElementById('sb-av').textContent = email.slice(0,2).toUpperCase();
+
+  // ── ROLE DETECTION ──────────────────────────────────────────────────────────
+  // Check if this user is a team member in someone else's workspace
+  const {data:accessRow} = await SB.from('workspace_access')
+    .select('*').eq('member_user_id', U.id).maybeSingle();
+
+  if (accessRow) {
+    // Team member — load data from chairman's workspace
+    MY_ROLE        = accessRow.role_level || 'member';
+    MY_PERSON_ID   = accessRow.person_id;
+    CHAIRMAN_UID   = accessRow.chairman_user_id;
+  } else {
+    // Chairman (owns this workspace)
+    MY_ROLE      = 'super_admin';
+    MY_PERSON_ID = null;
+    CHAIRMAN_UID = U.id;
+  }
+
   await load();
 
-  // Auto-accept invite: if a people record with this email is still 'pending', mark it accepted
-  // This fires when an invited person signs up and logs in for the first time
+  // Auto-accept invite if email matches a pending people record
   if (email) {
     const matched = DB.people.filter(p => p.email && p.email.toLowerCase()===email.toLowerCase() && p.invite_status==='pending');
     for (const person of matched) {
       await SB.from('people').update({invite_status:'accepted'}).eq('id', person.id);
       person.invite_status = 'accepted';
+      // Also link workspace_access if not already done
+      if (!accessRow && person.user_id) {
+        await SB.from('workspace_access').upsert({
+          chairman_user_id: person.user_id,
+          member_user_id: U.id,
+          role_level: person.role_level||'member',
+          person_id: person.id,
+        }, {onConflict:'chairman_user_id,member_user_id'});
+      }
     }
   }
 
+  // Check for pending team requests addressed to this user
+  await checkTeamRequests();
+
+  // Build nav based on role
+  buildNav();
   renderTab(curTab);
   document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
   });
 }
 
+function updateNotifBadge() {
+  document.querySelectorAll('.notif-badge').forEach(el => {
+    el.style.display = notifCount > 0 ? 'flex' : 'none';
+    el.textContent = notifCount > 9 ? '9+' : String(notifCount);
+  });
+}
+
+function buildNav() {
+  const isSuper   = MY_ROLE === 'super_admin';
+  const isPrimary = MY_ROLE === 'primary_stakeholder';
+  const nb = '<span class="notif-badge" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);min-width:18px;height:18px;border-radius:99px;background:var(--rose);color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>';
+
+  const sbNav = document.querySelector('.sb-nav');
+  if (sbNav) {
+    sbNav.innerHTML =
+      '<button class="sb-b active" data-tab="dash" style="position:relative"><span class="ic">⌂</span> '+(isSuper?'Command Centre':'My Dashboard')+'</button>'+
+      '<button class="sb-b" data-tab="projects"><span class="ic">📋</span> Projects</button>'+
+      (isSuper||isPrimary ? '<button class="sb-b" data-tab="people"><span class="ic">👥</span> People</button>' : '')+
+      (isSuper ? '<button class="sb-b" data-tab="buildings"><span class="ic">🏢</span> Buildings</button>' : '')+
+      (isSuper ? '<button class="sb-b" data-tab="digest"><span class="ic">📤</span> Digest</button>' : '')+
+      '<button class="sb-b" data-tab="notifications" style="position:relative"><span class="ic">🔔</span> Notifications'+nb+'</button>'+
+      (isSuper ? '<button class="sb-b" data-tab="analytics"><span class="ic">📊</span> Analytics</button>' : '')+
+      (isSuper ? '<button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>' : '');
+  }
+  const bn = document.getElementById('bn');
+  if (bn) {
+    bn.innerHTML =
+      '<button class="nb active" data-tab="dash"><span class="ic">⌂</span><span class="lb">Home</span></button>'+
+      '<button class="nb" data-tab="projects"><span class="ic">📋</span><span class="lb">Projects</span></button>'+
+      (isSuper ? '<button class="nb" data-tab="analytics"><span class="ic">📊</span><span class="lb">Analytics</span></button>' : '')+
+      '<button class="nb" data-tab="notifications" style="position:relative"><span class="ic">🔔</span><span class="lb">Alerts</span>'+nb+'</button>'+
+      (isSuper ? '<button class="nb" data-tab="digest"><span class="ic">📤</span><span class="lb">Digest</span></button>' : '')+
+      '<button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>';
+  }
+  ['roles','notifications','analytics'].forEach(id => {
+    if (!document.getElementById('tab-'+id)) {
+      const d = document.createElement('div'); d.id='tab-'+id; d.className='page';
+      document.getElementById('content').appendChild(d);
+    }
+  });
+  updateNotifBadge();
+}
+
 function switchTab(id) {
   curTab = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
+  const tabEl = document.getElementById('tab-'+id);
+  if (tabEl) tabEl.classList.add('active');
   document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
     b.classList.toggle('active', b.dataset.tab===id);
   });
   renderTab(id);
 }
 function renderTab(id) {
-  if      (id==='dash')      rDash();
-  else if (id==='projects')  rProj();
-  else if (id==='people')    rPpl();
-  else if (id==='buildings') rBld();
-  else if (id==='digest')    rDig();
+  if      (id==='dash')          rDash();
+  else if (id==='projects')      rProj();
+  else if (id==='people')        rPpl();
+  else if (id==='buildings')     rBld();
+  else if (id==='digest')        rDig();
+  else if (id==='roles')         rRoles();
+  else if (id==='notifications') rNotifications();
+  else if (id==='analytics')     rAnalytics();
 }
+
 
 /* ── SHEET ── */
 function OS(ti, html, wide) {
@@ -528,21 +629,53 @@ function peopleOpts(cur, emptyLabel) {
 }
 
 /* ══════════════════════════════════════════════════════
+   ROLE-BASED DATA FILTERS
+   super_admin     → sees everything
+   primary_stakeholder → sees projects they own + tasks within
+   member          → sees only tasks assigned to them
+══════════════════════════════════════════════════════ */
+function visibleProjects() {
+  const all = DB.projects;
+  if (MY_ROLE === 'super_admin') return all;
+  if (MY_ROLE === 'primary_stakeholder') return all.filter(p => p.primaryOwnerId === MY_PERSON_ID);
+  // member — projects they have tasks in
+  const myProjIds = new Set(DB.tasks.filter(t => t.assignedTo===MY_PERSON_ID).map(t => t.projectId));
+  return all.filter(p => myProjIds.has(p.id));
+}
+function visibleTasks(projIds) {
+  const all = DB.tasks.filter(t => !projIds || projIds.has(t.projectId));
+  if (MY_ROLE === 'super_admin') return all;
+  if (MY_ROLE === 'primary_stakeholder') return all; // all tasks in their projects
+  return all.filter(t => t.assignedTo === MY_PERSON_ID);
+}
+
+/* ══════════════════════════════════════════════════════
    COMMAND CENTRE
 ══════════════════════════════════════════════════════ */
 function rDash() {
   const todayStr = tday();
   const tmrStr   = tmrDay();
-  const active   = DB.projects.filter(p => p.status!=='done');
+  const myProjs  = visibleProjects();
+  const active   = myProjs.filter(p => p.status!=='done');
+  const myProjIds = new Set(active.map(p => p.id));
+  const myTasks  = visibleTasks(myProjIds);
+
   const hCounts  = {on_track:0, at_risk:0, delayed:0};
   active.forEach(p => { const k=p.health||'on_track'; if (k in hCounts) hCounts[k]++; });
-  const totalOD  = DB.tasks.filter(t => isOD(t.dueDate,t.status)).length;
-  const dueSoon  = DB.tasks.filter(t => t.status!=='done' && (t.dueDate===todayStr||t.dueDate===tmrStr)).length;
+  const totalOD  = myTasks.filter(t => isOD(t.dueDate,t.status)).length;
+  const dueSoon  = myTasks.filter(t => t.status!=='done' && (t.dueDate===todayStr||t.dueDate===tmrStr)).length;
 
-  // people who own at least one active project
+  let h = '<div class="ph"><div><div class="pt">'+(MY_ROLE==='member'?'My Dashboard':'Command Centre')+'</div><div class="ps">'+nowFull()+'</div></div></div>';
+
+  // For members, show a personal task view instead of owner cards
+  if (MY_ROLE === 'member') {
+    h += rMemberDash(todayStr, tmrStr, myTasks);
+    document.getElementById('tab-dash').innerHTML = h;
+    return;
+  }
+
+  // people who own at least one active project (visible to this user)
   const owners = DB.people.filter(p => active.some(pr => pr.primaryOwnerId===p.id));
-
-  let h = '<div class="ph"><div><div class="pt">Command Centre</div><div class="ps">'+nowFull()+'</div></div></div>';
 
   // health pulse bar
   h += '<div style="display:flex;gap:6px;margin-bottom:12px">';
@@ -553,10 +686,15 @@ function rDash() {
   h += '</div>';
 
   // mini stat row
-  h += '<div class="sg" style="margin-bottom:20px">';
+  h += '<div class="sg" style="margin-bottom:16px">';
   h += '<div class="sc" style="--ac:#f87171;padding:12px"><div class="sn" style="font-size:24px">'+totalOD+'</div><div class="sl">Overdue</div></div>';
   h += '<div class="sc" style="--ac:#fbbf24;padding:12px"><div class="sn" style="font-size:24px">'+dueSoon+'</div><div class="sl">Due today &amp; tomorrow</div></div>';
   h += '</div>';
+
+  // ── ESCALATION PANEL ──
+  h += rEscalationPanel();
+  // ── FOLLOW-UP ENGINE ──
+  h += rFollowUpSection();
 
   if (!owners.length) {
     h += '<div class="es"><span class="em">🏗</span><div class="et">Welcome to Taskora</div><div class="ed">Add your team in People, create projects and assign owners — they\'ll appear here.</div></div>';
@@ -569,7 +707,7 @@ function rDash() {
   owners.forEach(person => {
     const ownedProjs = active.filter(pr => pr.primaryOwnerId===person.id);
     const projIds    = new Set(ownedProjs.map(pr => pr.id));
-    const allTasks   = DB.tasks.filter(t => projIds.has(t.projectId));
+    const allTasks   = visibleTasks(projIds);
     const pending    = allTasks.filter(t => t.status!=='done');
     const done       = allTasks.filter(t => t.status==='done');
     const pct        = allTasks.length ? Math.round(done.length/allTasks.length*100) : 0;
@@ -665,8 +803,160 @@ async function dshCySt(id) {
   if (!t) return;
   const i = SCYC.indexOf(t.status);
   t.status = SCYC[(i+1) % SCYC.length];
-  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id',U.id);
+  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id', CHAIRMAN_UID||U.id);
   rDash();
+}
+
+// ── MEMBER DASHBOARD — shows only tasks assigned to logged-in team member ──
+function rMemberDash(todayStr, tmrStr, myTasks) {
+  const me = DB.people.find(p => p.id===MY_PERSON_ID);
+  let h = '';
+  if (me) {
+    h += '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:12px;margin-bottom:20px">';
+    h += av(me.name,me.color,44);
+    h += '<div><div style="font-size:15px;font-weight:700">'+esc(me.name)+'</div>';
+    h += '<div style="font-size:12px;color:var(--teal);margin-top:2px">'+esc(me.role||'Team member')+'</div></div>';
+    h += '</div>';
+  }
+  const pending  = myTasks.filter(t => t.status!=='done');
+  const overdue  = pending.filter(t => isOD(t.dueDate,t.status));
+  const todayT   = pending.filter(t => t.dueDate===todayStr);
+  const tmrT     = pending.filter(t => t.dueDate===tmrStr);
+  const upcoming = pending.filter(t => t.dueDate && t.dueDate>tmrStr).sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,5);
+
+  h += '<div class="sg" style="margin-bottom:20px">';
+  h += '<div class="sc" style="--ac:#f87171;padding:12px"><div class="sn" style="font-size:24px">'+overdue.length+'</div><div class="sl">Overdue</div></div>';
+  h += '<div class="sc" style="--ac:#fbbf24;padding:12px"><div class="sn" style="font-size:24px">'+(todayT.length+tmrT.length)+'</div><div class="sl">Due today & tomorrow</div></div>';
+  h += '</div>';
+
+  const sections = [
+    {label:'⚠ Overdue', tasks:overdue, bg:'rgba(244,63,94,.07)', bdr:'rgba(244,63,94,.2)', tc:'var(--rose)'},
+    {label:'📅 Today', tasks:todayT, bg:'rgba(245,158,11,.07)', bdr:'rgba(245,158,11,.2)', tc:'#f59e0b'},
+    {label:'📅 Tomorrow', tasks:tmrT, bg:'rgba(99,102,241,.06)', bdr:'rgba(99,102,241,.15)', tc:'var(--ind-l)'},
+    {label:'🗓 Upcoming', tasks:upcoming, bg:'var(--glass)', bdr:'var(--bdr)', tc:'var(--txt2)'},
+  ];
+  sections.forEach(({label,tasks,bg,bdr,tc}) => {
+    if (!tasks.length) return;
+    h += '<div style="font-size:11px;font-weight:700;color:'+tc+';text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">'+label+' ('+tasks.length+')</div>';
+    tasks.forEach(t => {
+      const proj = DB.projects.find(p => p.id===t.projectId);
+      const od = isOD(t.dueDate,t.status);
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+bg+';border:1px solid '+bdr+';border-radius:9px;margin-bottom:5px">';
+      h += '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+esc(t.title)+'</div>';
+      h += '<div style="font-size:11px;color:var(--txt2);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap">';
+      if (proj) h += '<span>'+esc(proj.name)+'</span>';
+      if (t.dueDate) h += '<span style="color:'+(od?'var(--rose)':tc)+';font-weight:'+(od?600:400)+'">'+(od?'⚠ ':'')+fd(t.dueDate)+'</span>';
+      if (t.notes) h += '<span style="color:var(--txt3)">'+esc(t.notes.slice(0,40))+(t.notes.length>40?'…':'')+'</span>';
+      h += '</div></div>';
+      h += '<button onclick="mbCySt(\''+t.id+'\')" style="flex-shrink:0;padding:4px 9px;border-radius:7px;border:1px solid var(--bdr);background:var(--glass);cursor:pointer;font-size:11px;font-weight:600;color:'+(TS[t.status]?.c||'var(--txt2)')+';white-space:nowrap">'+(TS[t.status]?.l||'—')+'</button>';
+      h += '</div>';
+    });
+    h += '<div style="margin-bottom:14px"></div>';
+  });
+  if (!pending.length) h += '<div class="es"><span class="em">🎉</span><div class="et">All caught up!</div><div class="ed">No pending tasks assigned to you.</div></div>';
+  return h;
+}
+async function mbCySt(id) {
+  const t = DB.tasks.find(x => x.id===id);
+  if (!t) return;
+  const i = SCYC.indexOf(t.status);
+  t.status = SCYC[(i+1) % SCYC.length];
+  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id', CHAIRMAN_UID||U.id);
+  rDash();
+}
+
+/* ══════════════════════════════════════════════════════
+   ROLES & ACCESS PORTAL (super_admin only)
+══════════════════════════════════════════════════════ */
+async function rRoles() {
+  const el = document.getElementById('tab-roles');
+  if (!el) return;
+  if (MY_ROLE !== 'super_admin') {
+    el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Access denied</div><div class="ed">Only super admins can manage roles.</div></div>';
+    return;
+  }
+
+  // Load workspace_access rows
+  const {data:waRows} = await SB.from('workspace_access').select('*').eq('chairman_user_id', U.id);
+  const waMap = {};
+  (waRows||[]).forEach(r => { if (r.person_id) waMap[r.person_id] = r; });
+
+  const superAdmins = DB.people.filter(p => p.role_level==='super_admin');
+
+  let h = '<div class="ph"><div><div class="pt">Roles &amp; Access</div><div class="ps">Manage who sees what</div></div></div>';
+
+  // Info box
+  h += '<div style="padding:12px 14px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;margin-bottom:20px;font-size:13px;color:var(--txt2);line-height:1.7">';
+  h += '<strong style="color:var(--ind-l)">Super Admin</strong> — Full access to all projects, people, buildings, digest and settings.<br>';
+  h += '<strong style="color:var(--teal)">Primary Stakeholder</strong> — Sees only projects they own and tasks within them.<br>';
+  h += '<strong style="color:var(--txt2)">Member</strong> — Sees only tasks assigned to them.';
+  h += '</div>';
+
+  // Super admin count warning
+  if (superAdmins.length >= 2) {
+    h += '<div style="padding:9px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:9px;margin-bottom:16px;font-size:12px;color:#f59e0b">⚠ Maximum 2 people can have Super Admin rights (in addition to you as Chairman).</div>';
+  }
+
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Team Members</div>';
+
+  if (!DB.people.length) {
+    h += '<div class="es"><span class="em">👥</span><div class="et">No team members yet</div><div class="ed">Add people first from the People tab.</div></div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  DB.people.forEach(person => {
+    const wa = waMap[person.id];
+    const isLinked = !!wa;
+    const currentRole = person.role_level || 'member';
+    const roleColors = {super_admin:'rgba(99,102,241,.14)', primary_stakeholder:'rgba(20,184,166,.1)', member:'rgba(100,116,139,.1)'};
+    const roleTxtColors = {super_admin:'var(--ind-l)', primary_stakeholder:'var(--teal)', member:'var(--txt3)'};
+    const roleLabels = {super_admin:'Super Admin', primary_stakeholder:'Primary Stakeholder', member:'Member'};
+
+    h += '<div class="gc" style="margin-bottom:8px">';
+    h += '<div style="display:flex;align-items:center;gap:12px">';
+    h += av(person.name,person.color,42);
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:14px;font-weight:700">'+esc(person.name)+'</div>';
+    h += '<div style="font-size:12px;color:var(--txt2);margin-top:1px">'+esc(person.role||'—')+'</div>';
+    if (person.email) h += '<div style="font-size:11px;color:var(--txt3);margin-top:1px">✉ '+esc(person.email)+'</div>';
+    h += '</div>';
+    // Role badge + change dropdown
+    h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">';
+    h += '<span class="bd" style="background:'+roleColors[currentRole]+';color:'+roleTxtColors[currentRole]+'">'+roleLabels[currentRole]+'</span>';
+    if (!isLinked) h += '<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">⚠ Not yet signed in</span>';
+    h += '<select onchange="setRole(\''+person.id+'\',this.value)" style="padding:5px 8px;border-radius:7px;border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:12px;cursor:pointer">';
+    ['super_admin','primary_stakeholder','member'].forEach(r => {
+      h += '<option value="'+r+'"'+(r===currentRole?' selected':'')+'>'+roleLabels[r]+'</option>';
+    });
+    h += '</select>';
+    h += '</div></div></div>';
+  });
+
+  // Chairman section
+  h += '<div style="margin-top:24px;padding:12px 14px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.18);border-radius:10px">';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--ind-l);margin-bottom:4px">👑 Chairman (You)</div>';
+  h += '<div style="font-size:12px;color:var(--txt2)">'+esc(U.email||'')+'</div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:4px">Permanent super admin. Cannot be removed or restricted.</div>';
+  h += '</div>';
+
+  el.innerHTML = h;
+}
+
+async function setRole(personId, newRole) {
+  const superAdmins = DB.people.filter(p => p.role_level==='super_admin' && p.id!==personId);
+  if (newRole==='super_admin' && superAdmins.length>=2) {
+    showToast('Max 2 super admins allowed. Remove one first.','err');
+    rRoles();
+    return;
+  }
+  // Update people record
+  await SB.from('people').update({role_level:newRole}).eq('id',personId).eq('user_id',CHAIRMAN_UID||U.id);
+  DB.people = DB.people.map(p => p.id===personId ? {...p,role_level:newRole} : p);
+  // Update workspace_access if exists
+  await SB.from('workspace_access').update({role_level:newRole}).eq('person_id',personId).eq('chairman_user_id',U.id);
+  showToast('Role updated ✓','ok');
+  rRoles();
 }
 
 /* ══════════════════════════════════════════════════════
@@ -768,15 +1058,26 @@ async function svPpl(id) {
   if (email) obj.email = email;
 
   if (id) {
-    await SB.from('people').update(obj).eq('id',id).eq('user_id',U.id);
+    await SB.from('people').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
     DB.people = DB.people.map(x => x.id===id ? {...x,...obj} : x);
     CS();
     rPpl();
   } else {
     // Save person record
     obj.invite_status = 'pending';
-    const {data:inserted} = await SB.from('people').insert({...obj, user_id:U.id}).select().single();
-    if (inserted) DB.people.push(inserted);
+    const {data:inserted} = await SB.from('people').insert({...obj, user_id:CHAIRMAN_UID||U.id}).select().single();
+    if (inserted) {
+      DB.people.push(inserted);
+      // Create a team_request so the invitee sees the accept banner when they log in
+      const chairmanName = U.user_metadata?.display_name || (U.email||'').split('@')[0] || 'The chairman';
+      await SB.from('team_requests').insert({
+        chairman_id: U.id,
+        person_id: inserted.id,
+        invitee_email: email,
+        chairman_name: chairmanName,
+        status: 'pending',
+      });
+    }
     CS();
     rPpl();
     // Open chairman's email client with pre-filled invite
@@ -789,7 +1090,7 @@ async function svPpl(id) {
       "1. Open this link: " + appUrl + "\n" +
       "2. Click 'Create account'\n" +
       "3. Sign up using this email address: " + email + "\n\n" +
-      "Once you're in, you'll see the projects and tasks assigned to you.\n\n" +
+      "Once you sign in, you'll see a notification to accept the workspace invitation.\n\n" +
       "Regards"
     );
     window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
@@ -816,6 +1117,10 @@ function taskRow(t) {
 
   let h = '<div class="tr-row'+(od?' od':'')+'" style="border-left-color:'+leftColor+'">';
   h += '<div style="display:flex;align-items:flex-start;gap:8px">';
+  // bulk mode checkbox
+  if (bulkMode) {
+    h += '<input type="checkbox" id="chk-'+t.id+'" '+(selTasks.has(t.id)?'checked':'')+' onclick="toggleTaskSel(\''+t.id+'\')" style="accent-color:var(--ind);width:16px;height:16px;margin-top:3px;flex-shrink:0">';
+  }
   h += '<div style="flex:1;min-width:0">';
   h += '<div style="font-size:13px;font-weight:500;line-height:1.4;margin-bottom:4px">'+esc(t.title)+'</div>';
   h += '<div class="tm">';
@@ -834,13 +1139,14 @@ function taskRow(t) {
 }
 
 function rProj() {
-  const projs = DB.projects.filter(pr => {
+  const allVisible = visibleProjects();
+  const projs = allVisible.filter(pr => {
     if (pFil==='done')   return pr.status==='done';
     if (pFil==='active') return pr.status!=='done';
     return true;
   });
 
-  let h = '<div class="ph"><div><div class="pt">Projects</div><div class="ps">'+DB.projects.filter(pr=>pr.status!=='done').length+' active</div></div>';
+  let h = '<div class="ph"><div><div class="pt">Projects</div><div class="ps">'+visibleProjects().filter(pr=>pr.status!=='done').length+' active</div></div>';
   h += '<button class="btn btn-p btn-sm" onclick="oPrF()">+ New project</button></div>';
 
   // View toggle + filter row
@@ -935,10 +1241,27 @@ function rProj() {
       h += '<button class="mb" onclick="oMilF(\''+proj.id+'\')">+ Milestone</button>';
       h += '<button class="mb" onclick="oTF(\''+proj.id+'\',\'\')">+ Task</button>';
       h += '<button class="mb" onclick="oAsn(\''+proj.id+'\')">🏢 Buildings</button>';
-      h += '<button class="mb" onclick="oPrF(\''+proj.id+'\')">Edit</button>';
+      h += '<button class="mb" onclick="oPrF(\''+proj.id+'\')">✎ Edit</button>';
+      if (MY_ROLE==='super_admin') {
+        h += '<button class="mb" onclick="saveTemplate(\''+proj.id+'\')">💾 Save template</button>';
+        if (DB.templates.length) h += '<button class="mb" onclick="oApplyTemplate(\''+proj.id+'\')">📋 Apply template</button>';
+        h += '<button class="mb'+(bulkMode?' active':'')+'" style="'+(bulkMode?'background:rgba(99,102,241,.18);color:var(--ind-l);border-color:rgba(99,102,241,.35)':'')+'" onclick="toggleBulkMode(\''+proj.id+'\')">☑ Bulk update</button>';
+      }
+      if (pbs.length) h += '<button class="mb'+(showGantt?' active':'')+'" style="'+(showGantt?'background:rgba(99,102,241,.2);color:var(--ind-l);border-color:rgba(99,102,241,.4)':'')+'" onclick="ganttP[\''+proj.id+'\']=!ganttP[\''+proj.id+'\'];rProj()">📊 '+(showGantt?'Exit Gantt':'Gantt')+'</button>';
       h += '<button class="mb dd" onclick="dPrj(\''+proj.id+'\')">Delete</button>';
-      if (pbs.length) h += '<button class="mb'+(showGantt?' active':'')+'" style="'+(showGantt?'background:rgba(99,102,241,.2);color:var(--ind-l);border-color:rgba(99,102,241,.4)':'')+'" onclick="ganttP[\''+proj.id+'\']=!ganttP[\''+proj.id+'\'];rProj()">📊 '+(showGantt?'List view':'Gantt view')+'</button>';
       h += '</div>';
+
+      // Bulk mode status bar
+      if (bulkMode) {
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:10px;margin-bottom:12px">';
+        h += '<span id="bulk-count" style="font-size:12px;color:var(--ind-l);font-weight:600">0 selected</span>';
+        h += '<span style="font-size:12px;color:var(--txt2)">→ Update to:</span>';
+        Object.entries(TS).forEach(([k,v]) => {
+          h += '<button onclick="bulkUpdateStatus(\''+k+'\')" style="padding:3px 9px;border-radius:6px;border:1px solid var(--bdr);background:'+v.bg+';color:'+v.c+';font-size:11px;font-weight:600;cursor:pointer">'+v.l+'</button>';
+        });
+        h += '<button onclick="bulkMode=false;selTasks.clear();rProj()" class="mb dd" style="margin-left:auto">✕ Cancel</button>';
+        h += '</div>';
+      }
 
       // ── GANTT VIEW ──
       if (showGantt && pbs.length) {
@@ -1051,6 +1374,23 @@ function rProj() {
         });
       }
       } // end else (list view)
+
+      // ── DOCUMENTS section ──
+      if (MY_ROLE==='super_admin' || MY_ROLE==='primary_stakeholder') {
+        h += rDocSection('project', proj.id);
+      }
+
+      // ── ACTIVITY LOG ──
+      if (MY_ROLE==='super_admin') {
+        h += '<div style="border-top:1px solid var(--bdr);padding-top:12px;margin-top:8px">';
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+        h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em">📜 Activity log</div>';
+        h += '<button onclick="rActivityLog(\''+proj.id+'\')" class="mb" style="font-size:11px">Load history</button>';
+        h += '</div>';
+        h += '<div id="act-log-'+proj.id+'"><div style="font-size:12px;color:var(--txt3);text-align:center;padding:6px">Tap \'Load history\' to view recent changes</div></div>';
+        h += '</div>';
+      }
+
       h += '</div>'; // end expanded
     }
     h += '</div>'; // end card
@@ -1331,7 +1671,7 @@ async function cySt(id) {
   if (!t) return;
   const i = SCYC.indexOf(t.status);
   t.status = SCYC[(i+1) % SCYC.length];
-  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id',U.id);
+  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
   rProj();
 }
 async function dTsk(id) {
@@ -1393,10 +1733,10 @@ async function svPr(id) {
     deadline:val('pf-dl')||null, color:val('pf-c'),
   };
   if (id) {
-    await SB.from('projects').update(obj).eq('id',id).eq('user_id',U.id);
+    await SB.from('projects').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
     DB.projects = DB.projects.map(x => x.id===id ? {...x,...obj,primaryOwnerId:obj.primary_stakeholder_id,desc:obj.description} : x);
   } else {
-    const {data} = await SB.from('projects').insert({...obj,user_id:U.id}).select().single();
+    const {data} = await SB.from('projects').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
     if (data) DB.projects.push({...data, primaryOwnerId:data.primary_stakeholder_id, desc:data.description, health:data.health||'on_track', priority:data.priority||'medium'});
   }
   CS();
@@ -1418,10 +1758,10 @@ async function svMil(id, pid) {
   if (!nm) return;
   const obj = {name:nm, deadline:val('mf-d')||null, status:val('mf-s')};
   if (id) {
-    await SB.from('sub_projects').update(obj).eq('id',id).eq('user_id',U.id);
+    await SB.from('sub_projects').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
     DB.milestones = DB.milestones.map(x => x.id===id ? {...x,...obj} : x);
   } else {
-    const {data} = await SB.from('sub_projects').insert({...obj, project_id:pid, user_id:U.id}).select().single();
+    const {data} = await SB.from('sub_projects').insert({...obj, project_id:pid, user_id:CHAIRMAN_UID||U.id}).select().single();
     if (data) DB.milestones.push({...data, projectId:data.project_id});
   }
   CS();
@@ -1473,10 +1813,10 @@ async function svTsk(id, pid, mid) {
     depends_on:deps, project_id:pid, sub_project_id:mid||null,
   };
   if (id) {
-    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',U.id);
+    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
     DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj,projectId:pid,milestoneId:mid||null,assignedTo:obj.assigned_to,dueDate:obj.due_date,followUp:obj.follow_up,dependsOn:deps} : x);
   } else {
-    const {data} = await SB.from('tasks').insert({...obj,user_id:U.id}).select().single();
+    const {data} = await SB.from('tasks').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
     if (data) DB.tasks.push({...data,projectId:data.project_id,milestoneId:data.sub_project_id,assignedTo:data.assigned_to,dueDate:data.due_date,followUp:data.follow_up,dependsOn:data.depends_on||[]});
   }
   CS();
@@ -1528,7 +1868,7 @@ async function svAsn(pid) {
   const ex    = new Set(DB.pb.filter(r => r.projectId===pid).map(r => r.buildingId));
   const toAdd = sel.filter(bid => !ex.has(bid));
   if (toAdd.length) {
-    const rows = toAdd.map(bid => ({user_id:U.id, project_id:pid, building_id:bid, status:'not_started', remarks:''}));
+    const rows = toAdd.map(bid => ({user_id:CHAIRMAN_UID||U.id, project_id:pid, building_id:bid, status:'not_started', remarks:''}));
     const {data} = await SB.from('project_buildings').insert(rows).select();
     if (data) data.forEach(r => DB.pb.push({...r, projectId:r.project_id, buildingId:r.building_id}));
   }
@@ -1612,7 +1952,7 @@ async function svPBS(rid) {
     target_completion: val('pb-tc')||null,
     secondary_owner_id: val('pb-so')||null,
   };
-  await SB.from('project_buildings').update(obj).eq('id',rid).eq('user_id',U.id);
+  await SB.from('project_buildings').update(obj).eq('id',rid).eq('user_id',CHAIRMAN_UID||U.id);
   DB.pb = DB.pb.map(r => r.id===rid ? {...r,...obj, targetCompletion:obj.target_completion, secondaryOwnerId:obj.secondary_owner_id} : r);
   CS();
   rProj();
@@ -1657,10 +1997,10 @@ async function svBldTsk(id, pid, rid) {
     sub_project_id: null, depends_on: [],
   };
   if (id) {
-    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',U.id);
+    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
     DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj, projectId:pid, buildingRefId:rid, assignedTo:obj.assigned_to, dueDate:obj.due_date, followUp:obj.follow_up} : x);
   } else {
-    const {data} = await SB.from('tasks').insert({...obj, user_id:U.id}).select().single();
+    const {data} = await SB.from('tasks').insert({...obj, user_id:CHAIRMAN_UID||U.id}).select().single();
     if (data) DB.tasks.push({...data, projectId:data.project_id, milestoneId:null, buildingRefId:data.project_building_id, assignedTo:data.assigned_to, dueDate:data.due_date, followUp:data.follow_up, dependsOn:[]});
   }
   oPBS(rid); // return to building detail
@@ -1671,7 +2011,7 @@ async function cyStBS(taskId, rid) {
   if (!t) return;
   const i = SCYC.indexOf(t.status);
   t.status = SCYC[(i+1) % SCYC.length];
-  await SB.from('tasks').update({status:t.status}).eq('id',taskId).eq('user_id',U.id);
+  await SB.from('tasks').update({status:t.status}).eq('id',taskId).eq('user_id',CHAIRMAN_UID||U.id);
   oPBS(rid);
 }
 
@@ -1772,7 +2112,7 @@ async function svAdd() {
   const eL  = DB.buildings.map(b => b.name.toLowerCase());
   const nw  = vld.filter(r => !eL.includes(r.name.trim().toLowerCase()));
   if (!nw.length) { alert('All entries are duplicates.'); return; }
-  const rows = nw.map(r => ({user_id:U.id, serial:r.serial?parseInt(r.serial):null, city:r.city.trim(), code:r.code.trim(), name:r.name.trim(), btype:r.btype||'operational', soft_handover:r.btype==='new'&&r.softHandover?r.softHandover:null, hard_handover:r.btype==='new'&&r.hardHandover?r.hardHandover:null}));
+  const rows = nw.map(r => ({user_id:CHAIRMAN_UID||U.id, serial:r.serial?parseInt(r.serial):null, city:r.city.trim(), code:r.code.trim(), name:r.name.trim(), btype:r.btype||'operational', soft_handover:r.btype==='new'&&r.softHandover?r.softHandover:null, hard_handover:r.btype==='new'&&r.hardHandover?r.hardHandover:null}));
   const {data} = await SB.from('buildings').insert(rows).select();
   if (data) data.forEach(b => DB.buildings.push({...b,softHandover:b.soft_handover,hardHandover:b.hard_handover,btype:b.btype||'operational'}));
   CS(); rBld();
@@ -1794,7 +2134,7 @@ async function svEB(id) {
   const nm=val('eb-nm').trim(); if(!nm) return;
   const ty=val('eb-ty');
   const obj={name:nm,city:val('eb-ci').trim(),code:val('eb-co').trim(),serial:val('eb-sr')?parseInt(val('eb-sr')):null,btype:ty,soft_handover:ty==='new'&&val('eb-so')?val('eb-so'):null,hard_handover:ty==='new'&&val('eb-ha')?val('eb-ha'):null};
-  await SB.from('buildings').update(obj).eq('id',id).eq('user_id',U.id);
+  await SB.from('buildings').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
   DB.buildings = DB.buildings.map(x => x.id===id ? {...x,...obj,softHandover:obj.soft_handover,hardHandover:obj.hard_handover} : x);
   CS(); rBld();
 }
@@ -1841,7 +2181,7 @@ function pImp() {
 }
 async function doImp() {
   const eL   = DB.buildings.map(b => b.name.toLowerCase());
-  const rows  = impP.filter(b => !eL.includes(b.name.toLowerCase())).map(r => ({user_id:U.id,serial:r.serial,city:r.city,code:r.code,name:r.name,btype:r.btype,soft_handover:r.btype==='new'&&r.softHandover?r.softHandover:null,hard_handover:r.btype==='new'&&r.hardHandover?r.hardHandover:null}));
+  const rows  = impP.filter(b => !eL.includes(b.name.toLowerCase())).map(r => ({user_id:CHAIRMAN_UID||U.id,serial:r.serial,city:r.city,code:r.code,name:r.name,btype:r.btype,soft_handover:r.btype==='new'&&r.softHandover?r.softHandover:null,hard_handover:r.btype==='new'&&r.hardHandover?r.hardHandover:null}));
   const {data} = await SB.from('buildings').insert(rows).select();
   if (data) data.forEach(b => DB.buildings.push({...b,softHandover:b.soft_handover,hardHandover:b.hard_handover,btype:b.btype||'operational'}));
   CS(); rBld();
@@ -1918,7 +2258,7 @@ async function svDE(pid) {
   if (!el) return;
   const content = el.value;
   DB.de[pid] = content;
-  await SB.from('digest_edits').upsert({user_id:U.id,person_id:pid,content,updated_at:new Date().toISOString()},{onConflict:'user_id,person_id'});
+  await SB.from('digest_edits').upsert({user_id:CHAIRMAN_UID||U.id,person_id:pid,content,updated_at:new Date().toISOString()},{onConflict:'user_id,person_id'});
   const ind = document.getElementById('di-'+pid);
   if (ind) { ind.textContent='Saved ✓'; ind.style.color='var(--grn)'; setTimeout(()=>{ if(ind) ind.textContent=''; },1500); }
 }
@@ -1929,14 +2269,14 @@ async function rgDig(pid) {
   const el     = document.getElementById('de-'+pid);
   if (el) el.value = fresh;
   delete DB.de[pid];
-  await SB.from('digest_edits').delete().eq('user_id',U.id).eq('person_id',pid);
+  await SB.from('digest_edits').delete().eq('user_id',CHAIRMAN_UID||U.id).eq('person_id',pid);
   const ind = document.getElementById('di-'+pid);
   if (ind) { ind.textContent='Regenerated'; ind.style.color='var(--ind-l)'; setTimeout(()=>{ if(ind) ind.textContent=''; },1500); }
 }
 async function rgAll() {
   if (!confirm('Discard ALL edits and regenerate all messages?')) return;
   DB.de = {};
-  await SB.from('digest_edits').delete().eq('user_id',U.id);
+  await SB.from('digest_edits').delete().eq('user_id',CHAIRMAN_UID||U.id);
   rDig();
 }
 
@@ -2049,6 +2389,526 @@ async function svProfile() {
 }
 
 /* ── PWA ── */
+
+/* ══════════════════════════════════════════════════════
+   PHASE 2 — ACTIVITY LOG
+══════════════════════════════════════════════════════ */
+async function logActivity(entityType, entityId, entityName, action, fieldChanged, oldVal, newVal) {
+  try {
+    const uid = CHAIRMAN_UID || U.id;
+    const actorName = U.user_metadata?.display_name || (U.email||'').split('@')[0] || 'Unknown';
+    await SB.from('activity_log').insert({
+      workspace_id: uid, actor_id: U.id, actor_name: actorName,
+      entity_type: entityType, entity_id: entityId, entity_name: entityName||'',
+      action, field_changed: fieldChanged||null,
+      old_value: oldVal!=null ? String(oldVal) : null,
+      new_value: newVal!=null ? String(newVal) : null,
+    });
+  } catch(e) { /* fire and forget */ }
+}
+
+async function rActivityLog(projId) {
+  const el = document.getElementById('act-log-'+projId);
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--txt3);padding:6px 0">Loading history…</div>';
+  const {data} = await SB.from('activity_log')
+    .select('*').eq('workspace_id', CHAIRMAN_UID||U.id)
+    .eq('entity_id', projId).order('created_at',{ascending:false}).limit(20);
+  if (!data||!data.length) { el.innerHTML='<div style="font-size:12px;color:var(--txt3);padding:6px 0;text-align:center">No activity yet</div>'; return; }
+  const ACTION_ICON = {created:'✨',updated:'✎',deleted:'🗑',status_changed:'🔄',assigned:'👤'};
+  el.innerHTML = data.map(a => {
+    const icon = ACTION_ICON[a.action]||'•';
+    const ago = timeAgo(a.created_at);
+    let detail = '';
+    if (a.field_changed && a.old_value!=null && a.new_value!=null)
+      detail = ' — '+esc(a.field_changed)+': <span style="color:var(--rose)">'+esc(a.old_value)+'</span> → <span style="color:var(--grn)">'+esc(a.new_value)+'</span>';
+    else if (a.new_value) detail = ': '+esc(a.new_value);
+    return '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:12px">'
+      +'<span style="flex-shrink:0;font-size:14px">'+icon+'</span>'
+      +'<div style="flex:1;min-width:0"><span style="color:var(--txt);font-weight:500">'+esc(a.actor_name)+'</span>'
+      +' <span style="color:var(--txt2)">'+a.action+'</span>'
+      +' <span style="color:var(--txt2)">'+esc(a.entity_type)+' <em>'+esc(a.entity_name)+'</em></span>'+detail+'</div>'
+      +'<span style="color:var(--txt3);flex-shrink:0;white-space:nowrap">'+ago+'</span></div>';
+  }).join('');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(diff/60000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return m+'m ago';
+  const h = Math.floor(m/60);
+  if (h < 24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 2 — NOTIFICATIONS
+══════════════════════════════════════════════════════ */
+async function pushNotif(type, title, body, entityType, entityId) {
+  try {
+    const forUser = U.id;
+    const wsId = CHAIRMAN_UID || U.id;
+    await SB.from('notifications').insert({workspace_id:wsId, for_user_id:forUser, type, title, body:body||'', entity_type:entityType||null, entity_id:entityId||null});
+    notifCount++;
+    updateNotifBadge();
+  } catch(e) {}
+}
+
+async function markAllNotifsRead() {
+  await SB.from('notifications').update({read:true}).eq('for_user_id',U.id).eq('read',false);
+  DB.notifications = DB.notifications.map(n=>({...n,read:true}));
+  notifCount = 0;
+  updateNotifBadge();
+  rNotifications();
+}
+
+function rNotifications() {
+  const el = document.getElementById('tab-notifications');
+  if (!el) return;
+  const unread = DB.notifications.filter(n=>!n.read);
+  const NOTIF_ICON = {overdue:'⚠',due_today:'📅',blocked:'🔴',escalation:'🚨',invite_accepted:'✓',status_changed:'🔄',digest_ready:'📤',default:'🔔'};
+  const NOTIF_COLOR = {overdue:'var(--rose)',due_today:'#f59e0b',blocked:'var(--rose)',escalation:'var(--rose)',invite_accepted:'var(--grn)',status_changed:'var(--ind-l)',digest_ready:'var(--teal)',default:'var(--txt2)'};
+
+  let h = '<div class="ph"><div><div class="pt">Notifications</div><div class="ps">'+unread.length+' unread</div></div>';
+  if (unread.length) h += '<button class="btn btn-g btn-sm" onclick="markAllNotifsRead()">Mark all read</button>';
+  h += '</div>';
+
+  // Generate live alerts from data (escalation engine)
+  const today = tday();
+  const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate()-3);
+  const threeDayStr = threeDaysAgo.toISOString().slice(0,10);
+  const sevenDayStr = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+
+  const liveAlerts = [];
+  const myProjs = visibleProjects().filter(p=>p.status!=='done');
+  const myProjIds = new Set(myProjs.map(p=>p.id));
+  const myTasks = visibleTasks(myProjIds);
+
+  // Overdue >3 days
+  myTasks.filter(t=>t.dueDate && t.dueDate < threeDayStr && t.status!=='done').forEach(t => {
+    const proj = DB.projects.find(p=>p.id===t.projectId);
+    const pe = DB.people.find(p=>p.id===t.assignedTo);
+    liveAlerts.push({type:'overdue',icon:'🚨',color:'var(--rose)',title:'Task overdue >3 days',body:esc(t.title)+(pe?' · '+esc(pe.name):'')+(proj?' · '+esc(proj.name):''),age:'Persistent'});
+  });
+  // Blocked >2 days
+  myTasks.filter(t=>t.status==='blocked').forEach(t => {
+    const proj = DB.projects.find(p=>p.id===t.projectId);
+    liveAlerts.push({type:'blocked',icon:'🔴',color:'var(--rose)',title:'Task blocked',body:esc(t.title)+(proj?' · '+esc(proj.name):''),age:'Action needed'});
+  });
+  // Projects at risk >7 days (based on health — we can't track when it changed without activity log)
+  myProjs.filter(p=>p.health==='delayed').forEach(p => {
+    const owner = DB.people.find(pe=>pe.id===p.primaryOwnerId);
+    liveAlerts.push({type:'escalation',icon:'🚨',color:'var(--rose)',title:'Project delayed',body:esc(p.name)+(owner?' · Owner: '+esc(owner.name):''),age:'Escalation'});
+  });
+  // Follow-ups due today
+  myTasks.filter(t=>t.followUp===today && t.status!=='done').forEach(t => {
+    liveAlerts.push({type:'due_today',icon:'📋',color:'#f59e0b',title:'Follow-up due today',body:esc(t.title),age:'Today'});
+  });
+
+  if (liveAlerts.length) {
+    h += '<div style="font-size:11px;font-weight:700;color:var(--rose);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">⚡ Live Alerts</div>';
+    liveAlerts.forEach(a => {
+      h += '<div style="display:flex;gap:10px;padding:10px 12px;background:rgba(244,63,94,.07);border:1px solid rgba(244,63,94,.2);border-radius:10px;margin-bottom:6px">';
+      h += '<span style="font-size:18px;flex-shrink:0">'+a.icon+'</span>';
+      h += '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:'+a.color+'">'+a.title+'</div>';
+      h += '<div style="font-size:12px;color:var(--txt2);margin-top:2px">'+a.body+'</div></div>';
+      h += '<span style="font-size:11px;color:var(--txt3);flex-shrink:0;white-space:nowrap">'+a.age+'</span></div>';
+    });
+    h += '<div style="margin-bottom:20px"></div>';
+  }
+
+  if (!DB.notifications.length && !liveAlerts.length) {
+    h += '<div class="es"><span class="em">🔔</span><div class="et">All clear</div><div class="ed">No notifications yet. Activity alerts will appear here.</div></div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  if (DB.notifications.length) {
+    h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">History</div>';
+    DB.notifications.forEach(n => {
+      const icon = NOTIF_ICON[n.type]||NOTIF_ICON.default;
+      const color = NOTIF_COLOR[n.type]||NOTIF_COLOR.default;
+      h += '<div style="display:flex;gap:10px;padding:10px 12px;background:'+(n.read?'var(--glass)':'rgba(99,102,241,.07)')+';border:1px solid '+(n.read?'var(--bdr)':'rgba(99,102,241,.25)')+';border-radius:10px;margin-bottom:5px">';
+      h += '<span style="font-size:16px;flex-shrink:0">'+icon+'</span>';
+      h += '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:'+(n.read?400:600)+';color:'+(n.read?'var(--txt2)':color)+'">'+esc(n.title)+'</div>';
+      if (n.body) h += '<div style="font-size:12px;color:var(--txt2);margin-top:2px">'+esc(n.body)+'</div>';
+      h += '</div><span style="font-size:11px;color:var(--txt3);flex-shrink:0;white-space:nowrap">'+timeAgo(n.created_at)+'</span></div>';
+    });
+  }
+
+  el.innerHTML = h;
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 2 — ESCALATION PANEL (Command Centre)
+══════════════════════════════════════════════════════ */
+function rEscalationPanel() {
+  const threeDayStr = new Date(Date.now()-3*86400000).toISOString().slice(0,10);
+  const myProjs  = visibleProjects().filter(p=>p.status!=='done');
+  const myProjIds= new Set(myProjs.map(p=>p.id));
+  const myTasks  = visibleTasks(myProjIds);
+
+  const severeOD  = myTasks.filter(t=>t.dueDate && t.dueDate<threeDayStr && t.status!=='done');
+  const blocked   = myTasks.filter(t=>t.status==='blocked');
+  const delayed   = myProjs.filter(p=>p.health==='delayed');
+
+  if (!severeOD.length && !blocked.length && !delayed.length) return '';
+
+  let h = '<div style="background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.2);border-radius:12px;padding:14px;margin-bottom:20px">';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:18px">🚨</span><div style="font-size:13px;font-weight:700;color:var(--rose)">Escalation Required</div>';
+  h += '<div style="display:flex;gap:5px;margin-left:auto">';
+  if (severeOD.length) h += '<span class="bd" style="background:rgba(244,63,94,.15);color:var(--rose)">'+severeOD.length+' critical overdue</span>';
+  if (blocked.length)  h += '<span class="bd" style="background:rgba(244,63,94,.12);color:var(--rose)">'+blocked.length+' blocked</span>';
+  if (delayed.length)  h += '<span class="bd" style="background:rgba(244,63,94,.12);color:var(--rose)">'+delayed.length+' delayed projects</span>';
+  h += '</div></div>';
+
+  // Critical overdue tasks (>3 days)
+  severeOD.slice(0,4).forEach(t => {
+    const proj = DB.projects.find(p=>p.id===t.projectId);
+    const pe   = DB.people.find(p=>p.id===t.assignedTo);
+    const owner= proj ? DB.people.find(p=>p.id===proj.primaryOwnerId) : null;
+    const daysOD = Math.floor((Date.now()-new Date(t.dueDate+'T12:00:00').getTime())/86400000);
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(244,63,94,.08);border-radius:8px;margin-bottom:4px">';
+    h += '<span style="font-size:12px;color:var(--rose);flex-shrink:0">⚠</span>';
+    h += '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">'+esc(t.title)+'</div>';
+    h += '<div style="font-size:11px;color:var(--txt2);margin-top:1px">';
+    if (proj) h += esc(proj.name)+' · ';
+    if (pe)   h += esc(pe.name)+' · ';
+    h += '<span style="color:var(--rose);font-weight:600">'+daysOD+' days overdue</span></div></div>';
+    if (owner) h += av(owner.name,owner.color,22);
+    h += '</div>';
+  });
+
+  // Blocked tasks
+  blocked.slice(0,3).forEach(t => {
+    const proj = DB.projects.find(p=>p.id===t.projectId);
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(244,63,94,.05);border-radius:8px;margin-bottom:4px">';
+    h += '<span style="font-size:12px;flex-shrink:0">🔴</span>';
+    h += '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">'+esc(t.title)+'</div>';
+    if (proj) h += '<div style="font-size:11px;color:var(--txt2)">'+esc(proj.name)+'</div>';
+    h += '</div><span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">Blocked</span></div>';
+  });
+
+  // Delayed projects
+  delayed.slice(0,3).forEach(p => {
+    const owner = DB.people.find(pe=>pe.id===p.primaryOwnerId);
+    const allT = DB.tasks.filter(t=>t.projectId===p.id);
+    const pct = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(244,63,94,.05);border-radius:8px;margin-bottom:4px">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div>';
+    h += '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">'+esc(p.name)+'</div>';
+    if (owner) h += '<div style="font-size:11px;color:var(--txt2)">'+esc(owner.name)+' · '+pct+'% done</div>';
+    h += '</div><span class="bd h-dl">Delayed</span></div>';
+  });
+
+  h += '</div>';
+  return h;
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 2 — DOCUMENTS
+══════════════════════════════════════════════════════ */
+function rDocSection(entityType, entityId) {
+  const docs = DB.docs.filter(d => d.entity_type===entityType && d.entity_id===entityId);
+  const DST = {pending:{l:'Pending',c:'#f59e0b',bg:'rgba(245,158,11,.12)'},received:{l:'Received',c:'#10b981',bg:'rgba(16,185,129,.12)'},rejected:{l:'Rejected',c:'#f43f5e',bg:'rgba(244,63,94,.12)'}};
+
+  let h = '<div style="margin-top:10px;border-top:1px solid var(--bdr);padding-top:10px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em">📎 Documents</div>';
+  h += '<button onclick="oDocF(this.dataset.et,this.dataset.eid)" data-et="'+entityType+'" data-eid="'+entityId+'" class="mb" style="font-size:11px">+ Add doc</button>';
+  h += '</div>';
+
+  if (!docs.length) {
+    h += '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:6px">No documents attached.</div>';
+  } else {
+    docs.forEach(doc => {
+      const st = DST[doc.doc_status]||DST.pending;
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--glass);border-radius:8px;border:1px solid var(--bdr);margin-bottom:4px">';
+      h += '<span style="font-size:14px;flex-shrink:0">📄</span>';
+      h += '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">'+esc(doc.name)+'</div>';
+      if (doc.notes) h += '<div style="font-size:11px;color:var(--txt3)">'+esc(doc.notes)+'</div>';
+      h += '</div>';
+      if (doc.url) h += '<a href="'+esc(doc.url)+'" target="_blank" style="font-size:11px;color:var(--ind-l);text-decoration:none;flex-shrink:0">View ↗</a>';
+      h += '<span class="bd" style="background:'+st.bg+';color:'+st.c+'">'+st.l+'</span>';
+      h += '<button onclick="cycleDocStatus(this.dataset.id)" data-id="'+doc.id+'" class="mb" style="font-size:11px;padding:2px 7px" title="Cycle status">↻</button>';
+      h += '<button onclick="delDoc(this.dataset.id,this.dataset.et,this.dataset.eid)" data-id="'+doc.id+'" data-et="'+entityType+'" data-eid="'+entityId+'" class="mb dd" style="font-size:11px;padding:2px 7px">×</button>';
+      h += '</div>';
+    });
+  }
+  h += '</div>';
+  return h;
+}
+
+function oDocF(entityType, entityId) {
+  let h = '<div class="fg"><label class="fl">Document name</label><input id="df-n" class="gi" placeholder="e.g. Lease Agreement, LL Doc, NOC" ></div>';
+  h += '<div class="fg"><label class="fl">Status</label><select id="df-st" class="gi"><option value="pending">Pending</option><option value="received">Received</option><option value="rejected">Rejected</option></select></div>';
+  h += '<div class="fg"><label class="fl">URL / link (optional)</label><input id="df-u" class="gi" type="url" placeholder="https://drive.google.com/…"></div>';
+  h += '<div class="fg"><label class="fl">Notes</label><textarea id="df-no" class="gi" placeholder="e.g. Awaiting landlord signature"></textarea></div>';
+  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svDoc(this.dataset.et,this.dataset.eid)" data-et="'+entityType+'" data-eid="'+entityId+'">Save</button></div>';
+  OS('Add document', h);
+}
+async function svDoc(entityType, entityId) {
+  const name = val('df-n').trim(); if (!name) return;
+  const obj = {workspace_id:CHAIRMAN_UID||U.id, entity_type:entityType, entity_id:entityId, name, doc_status:val('df-st'), url:val('df-u').trim(), notes:val('df-no').trim(), uploaded_by:U.id};
+  const {data} = await SB.from('documents').insert(obj).select().single();
+  if (data) DB.docs.push(data);
+  CS();
+  if (curTab==='projects') rProj();
+}
+async function cycleDocStatus(docId) {
+  const doc = DB.docs.find(d=>d.id===docId); if (!doc) return;
+  const cycle = ['pending','received','rejected'];
+  const next = cycle[(cycle.indexOf(doc.doc_status)+1)%cycle.length];
+  await SB.from('documents').update({doc_status:next}).eq('id',docId);
+  DB.docs = DB.docs.map(d=>d.id===docId?{...d,doc_status:next}:d);
+  if (curTab==='projects') rProj();
+}
+async function delDoc(docId, et, eid) {
+  if (!confirm('Delete this document?')) return;
+  await SB.from('documents').delete().eq('id',docId);
+  DB.docs = DB.docs.filter(d=>d.id!==docId);
+  if (curTab==='projects') rProj();
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 2 — FOLLOW-UP ENGINE
+══════════════════════════════════════════════════════ */
+function rFollowUpSection() {
+  const todayStr = tday();
+  const myProjIds = new Set(visibleProjects().map(p=>p.id));
+  const followUps = visibleTasks(myProjIds).filter(t=>t.followUp===todayStr && t.status!=='done');
+  if (!followUps.length) return '';
+  let h = '<div style="background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:14px;margin-bottom:16px">';
+  h += '<div style="font-size:11px;font-weight:700;color:#c084fc;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">📋 Follow-up Today ('+followUps.length+')</div>';
+  followUps.forEach(t => {
+    const proj = DB.projects.find(p=>p.id===t.projectId);
+    const pe   = DB.people.find(p=>p.id===t.assignedTo);
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(168,85,247,.08);border-radius:8px;margin-bottom:4px">';
+    h += '<span style="font-size:12px;flex-shrink:0">📋</span>';
+    h += '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:var(--txt)">'+esc(t.title)+'</div>';
+    h += '<div style="font-size:11px;color:var(--txt2)">'+(proj?esc(proj.name)+' · ':'')+( pe?esc(pe.name):'')+'</div></div>';
+    h += '<button onclick="dshCySt(this.dataset.id)" data-id="'+t.id+'" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid rgba(168,85,247,.3);background:rgba(168,85,247,.1);cursor:pointer;font-size:11px;color:#c084fc">'+((TS[t.status]&&TS[t.status].l)||'—')+'</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 3 — PROJECT TEMPLATES
+══════════════════════════════════════════════════════ */
+async function saveTemplate(projId) {
+  const proj = DB.projects.find(p=>p.id===projId); if (!proj) return;
+  const name = prompt('Template name:', proj.name+' (template)');
+  if (!name) return;
+  const mils = DB.milestones.filter(m=>m.projectId===projId).map(m=>({name:m.name,deadline_offset:null,tasks:DB.tasks.filter(t=>t.milestoneId===m.id).map(t=>({title:t.title,notes:t.notes,priority:t.priority}))}));
+  const directTasks = DB.tasks.filter(t=>t.projectId===projId&&!t.milestoneId).map(t=>({title:t.title,notes:t.notes,priority:t.priority}));
+  const structure = {milestones:mils, directTasks};
+  const {data} = await SB.from('project_templates').insert({user_id:CHAIRMAN_UID||U.id,name,description:proj.description||'',structure}).select().single();
+  if (data) { DB.templates.push(data); showToast('Template saved: '+name,'ok'); }
+}
+
+function oApplyTemplate(projId) {
+  if (!DB.templates.length) { showToast('No templates saved yet. Save a template from an existing project first.','err'); return; }
+  let h = '<div style="font-size:13px;color:var(--txt2);margin-bottom:14px">Select a template to apply. This adds its milestones and tasks to the project.</div>';
+  h += '<div style="border:1px solid var(--bdr);border-radius:10px;overflow:auto;max-height:250px;margin-bottom:14px">';
+  DB.templates.forEach(t => {
+    const mCount = (t.structure?.milestones||[]).length;
+    const tCount = (t.structure?.milestones||[]).reduce((s,m)=>s+(m.tasks||[]).length,0) + (t.structure?.directTasks||[]).length;
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--bdr);cursor:pointer" onclick="applyTemplate(this.dataset.tid,this.dataset.pid)" data-tid="'+t.id+'" data-pid="'+projId+'">';
+    h += '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+esc(t.name)+'</div>';
+    h += '<div style="font-size:11px;color:var(--txt2)">'+mCount+' milestones · '+tCount+' tasks</div></div>';
+    h += '<span style="font-size:12px;color:var(--ind-l)">Apply →</span></div>';
+  });
+  h += '</div>';
+  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button></div>';
+  OS('Apply template', h);
+}
+
+async function applyTemplate(templateId, projId) {
+  const tpl = DB.templates.find(t=>t.id===templateId); if (!tpl) return;
+  const uid = CHAIRMAN_UID||U.id;
+  CS();
+  // Create milestones
+  for (const m of (tpl.structure.milestones||[])) {
+    const {data:mil} = await SB.from('sub_projects').insert({user_id:uid,project_id:projId,name:m.name,status:'not_started'}).select().single();
+    if (mil) {
+      DB.milestones.push({...mil,projectId:projId});
+      for (const t of (m.tasks||[])) {
+        const {data:task} = await SB.from('tasks').insert({user_id:uid,project_id:projId,sub_project_id:mil.id,title:t.title,notes:t.notes||'',priority:t.priority||'medium',status:'not_started',depends_on:[]}).select().single();
+        if (task) DB.tasks.push({...task,projectId:projId,milestoneId:mil.id,assignedTo:null,dueDate:null,followUp:null,dependsOn:[]});
+      }
+    }
+  }
+  // Create direct tasks
+  for (const t of (tpl.structure.directTasks||[])) {
+    const {data:task} = await SB.from('tasks').insert({user_id:uid,project_id:projId,title:t.title,notes:t.notes||'',priority:t.priority||'medium',status:'not_started',depends_on:[]}).select().single();
+    if (task) DB.tasks.push({...task,projectId:projId,milestoneId:null,assignedTo:null,dueDate:null,followUp:null,dependsOn:[]});
+  }
+  showToast('Template applied ✓','ok');
+  rProj();
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 3 — BULK TASK STATUS UPDATE
+══════════════════════════════════════════════════════ */
+function toggleBulkMode(projId) {
+  bulkMode = !bulkMode;
+  selTasks.clear();
+  rProj();
+}
+function toggleTaskSel(taskId) {
+  if (selTasks.has(taskId)) selTasks.delete(taskId); else selTasks.add(taskId);
+  const box = document.getElementById('chk-'+taskId);
+  if (box) box.checked = selTasks.has(taskId);
+  const countEl = document.getElementById('bulk-count');
+  if (countEl) countEl.textContent = selTasks.size+' selected';
+}
+async function bulkUpdateStatus(newStatus) {
+  if (!selTasks.size) { showToast('Select tasks first','err'); return; }
+  const ids = [...selTasks];
+  await SB.from('tasks').update({status:newStatus}).in('id',ids).eq('user_id',CHAIRMAN_UID||U.id);
+  DB.tasks = DB.tasks.map(t => ids.includes(t.id) ? {...t,status:newStatus} : t);
+  selTasks.clear();
+  bulkMode = false;
+  showToast(ids.length+' tasks updated to '+TS[newStatus].l,'ok');
+  rProj();
+}
+
+/* ══════════════════════════════════════════════════════
+   PHASE 3 — ANALYTICS DASHBOARD
+══════════════════════════════════════════════════════ */
+function rAnalytics() {
+  const el = document.getElementById('tab-analytics');
+  if (!el) return;
+  if (MY_ROLE !== 'super_admin') {
+    el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Super admin only</div></div>';
+    return;
+  }
+
+  const allProjs = DB.projects;
+  const active   = allProjs.filter(p=>p.status!=='done');
+  const done     = allProjs.filter(p=>p.status==='done');
+  const allTasks = DB.tasks;
+  const pending  = allTasks.filter(t=>t.status!=='done');
+  const overdue  = allTasks.filter(t=>isOD(t.dueDate,t.status));
+  const doneT    = allTasks.filter(t=>t.status==='done');
+  const today    = tday();
+  const thisWeekStart = new Date(); thisWeekStart.setDate(thisWeekStart.getDate()-7);
+  const doneThisWeek  = doneT.filter(t=>t.completed_at && new Date(t.completed_at)>=thisWeekStart).length;
+
+  let h = '<div class="ph"><div><div class="pt">Analytics</div><div class="ps">Portfolio intelligence · '+nowFull()+'</div></div></div>';
+
+  // Top KPIs
+  h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px">';
+  const kpis = [
+    {n:active.length,l:'Active projects',c:'var(--ind-l)'},
+    {n:done.length,l:'Completed projects',c:'var(--grn)'},
+    {n:overdue.length,l:'Overdue tasks',c:'var(--rose)'},
+    {n:doneThisWeek,l:'Completed this week',c:'var(--teal)'},
+    {n:pending.length,l:'Pending tasks',c:'var(--amb)'},
+    {n:DB.buildings.length,l:'Buildings',c:'#818cf8'},
+  ];
+  kpis.forEach(k=>{
+    h += '<div class="sc" style="--ac:'+k.c+';padding:14px"><div class="sn">'+k.n+'</div><div class="sl">'+k.l+'</div></div>';
+  });
+  h += '</div>';
+
+  // Health distribution
+  const hCounts = {on_track:0,at_risk:0,delayed:0,not_started:0};
+  active.forEach(p=>{hCounts[p.health||'on_track']++;});
+  const hTotal = active.length||1;
+  h += '<div class="gc" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">Portfolio Health Distribution</div>';
+  const HH = [{k:'on_track',l:'On Track',c:'#10b981'},{k:'at_risk',l:'At Risk',c:'#f59e0b'},{k:'delayed',l:'Delayed',c:'#f43f5e'},{k:'not_started',l:'Not Started',c:'#64748b'}];
+  h += '<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:10px">';
+  HH.forEach(hh=>{ const w=Math.round(hCounts[hh.k]/hTotal*100); if(w>0) h+='<div style="width:'+w+'%;background:'+hh.c+';transition:width .4s"></div>'; });
+  h += '</div>';
+  h += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+  HH.forEach(hh=>{ h+='<div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:50%;background:'+hh.c+'"></div><span style="font-size:12px;color:var(--txt2)">'+hh.l+' ('+hCounts[hh.k]+')</span></div>'; });
+  h += '</div></div>';
+
+  // Per-stakeholder accountability matrix
+  const owners = DB.people.filter(p=>active.some(pr=>pr.primaryOwnerId===p.id));
+  if (owners.length) {
+    h += '<div class="gc" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">Owner Accountability Matrix</div>';
+    h += '<div style="overflow-x:auto"><table style="min-width:480px"><thead><tr>';
+    ['Owner','Projects','Pending','Overdue','% Done','Health'].forEach(col=>{ h+='<th>'+col+'</th>'; });
+    h += '</tr></thead><tbody>';
+    owners.forEach(person => {
+      const ownedP = active.filter(pr=>pr.primaryOwnerId===person.id);
+      const pIds   = new Set(ownedP.map(p=>p.id));
+      const oTasks = allTasks.filter(t=>pIds.has(t.projectId));
+      const oPend  = oTasks.filter(t=>t.status!=='done').length;
+      const oOD    = oTasks.filter(t=>isOD(t.dueDate,t.status)).length;
+      const pct    = oTasks.length ? Math.round(oTasks.filter(t=>t.status==='done').length/oTasks.length*100) : 0;
+      const worst  = ownedP.some(p=>p.health==='delayed')?'delayed':ownedP.some(p=>p.health==='at_risk')?'at_risk':'on_track';
+      h += '<tr>';
+      h += '<td><div style="display:flex;align-items:center;gap:7px">'+av(person.name,person.color,24)+'<span style="font-size:12px;font-weight:600">'+esc(person.name.split(' ')[0])+'</span></div></td>';
+      h += '<td style="text-align:center">'+ownedP.length+'</td>';
+      h += '<td style="text-align:center">'+oPend+'</td>';
+      h += '<td style="text-align:center;color:'+(oOD?'var(--rose)':'var(--txt2)')+'">'+( oOD||'—')+'</td>';
+      h += '<td style="text-align:center"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:var(--grn)"></div></div><span style="font-size:11px;color:var(--txt2);width:30px">'+pct+'%</span></div></td>';
+      h += '<td>'+hBdg(worst)+'</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  // Building progress by city
+  const cities = [...new Set(DB.buildings.map(b=>b.city).filter(Boolean))].sort();
+  if (cities.length) {
+    h += '<div class="gc" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">Building Progress by City</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+    cities.forEach(city => {
+      const cityBlds = DB.buildings.filter(b=>b.city===city);
+      const cityPBs  = DB.pb.filter(r=>cityBlds.some(b=>b.id===r.buildingId));
+      const doneB    = cityPBs.filter(r=>r.status==='done').length;
+      const inProg   = cityPBs.filter(r=>r.status==='in_progress').length;
+      const blocked  = cityPBs.filter(r=>r.status==='blocked'||r.status==='on_hold').length;
+      h += '<div style="padding:10px 12px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)">';
+      h += '<div style="font-size:12px;font-weight:600;margin-bottom:6px">'+esc(city)+' <span style="color:var(--txt3);font-weight:400">('+cityBlds.length+')</span></div>';
+      h += '<div style="display:flex;gap:5px;flex-wrap:wrap">';
+      if (doneB)   h += '<span class="bd" style="background:rgba(16,185,129,.12);color:#10b981">✓ '+doneB+'</span>';
+      if (inProg)  h += '<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">▶ '+inProg+'</span>';
+      if (blocked) h += '<span class="bd" style="background:rgba(244,63,94,.1);color:var(--rose)">⊘ '+blocked+'</span>';
+      if (!cityPBs.length) h += '<span style="font-size:11px;color:var(--txt3)">Not in any project</span>';
+      h += '</div></div>';
+    });
+    h += '</div></div>';
+  }
+
+  // Task priority breakdown
+  const priorCounts = {critical:0,high:0,medium:0,low:0};
+  pending.forEach(t=>{ if(t.priority in priorCounts) priorCounts[t.priority]++; });
+  h += '<div class="gc" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">Pending Tasks by Priority</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+  [['critical','Critical','var(--rose)'],['high','High','#f59e0b'],['medium','Medium','var(--ind-l)'],['low','Low','var(--txt3)']].forEach(([k,l,c])=>{
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)">';
+    h += '<div style="width:4px;height:36px;background:'+c+';border-radius:2px;flex-shrink:0"></div>';
+    h += '<div><div style="font-size:20px;font-weight:700;color:'+c+'">'+priorCounts[k]+'</div><div style="font-size:11px;color:var(--txt2)">'+l+'</div></div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // Digest schedule settings
+  h += '<div class="gc"><div style="font-size:13px;font-weight:700;margin-bottom:12px">⏰ Daily Digest Schedule</div>';
+  const sch = DB.schedule;
+  h += '<div style="font-size:12px;color:var(--txt2);margin-bottom:12px">Auto-generate a digest notification each day at a set time. Requires the daily-digest Edge Function to be triggered via a cron job.</div>';
+  h += '<div class="fr"><div class="fg"><label class="fl">Send time</label><input id="sch-t" class="gi" type="time" value="'+(sch?sch.send_time.slice(0,5):'08:00')+'"></div>';
+  h += '<div class="fg"><label class="fl">Timezone</label><select id="sch-tz" class="gi"><option value="Asia/Kolkata"'+((!sch||sch.timezone==='Asia/Kolkata')?' selected':'')+'>IST (Asia/Kolkata)</option><option value="UTC"'+(sch?.timezone==='UTC'?' selected':'')+'>UTC</option><option value="America/New_York"'+(sch?.timezone==='America/New_York'?' selected':'')+'>EST</option></select></div></div>';
+  h += '<div class="fg"><label class="fl">Auto-schedule</label><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="sch-en" '+(sch?.enabled?'checked':'')+' style="accent-color:var(--ind);width:16px;height:16px"><span style="font-size:13px;color:var(--txt2)">Enable daily digest notification</span></label></div>';
+  h += '<button onclick="svSchedule()" class="btn btn-p btn-sm">Save schedule</button></div>';
+
+  el.innerHTML = h;
+}
+
+async function svSchedule() {
+  const obj = {chairman_id:CHAIRMAN_UID||U.id, send_time:val('sch-t')||'08:00:00', timezone:val('sch-tz')||'Asia/Kolkata', enabled:document.getElementById('sch-en')?.checked||false};
+  const {data} = await SB.from('digest_schedule').upsert(obj,{onConflict:'chairman_id'}).select().single();
+  if (data) { DB.schedule=data; showToast('Schedule saved ✓','ok'); }
+}
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 
 boot();
