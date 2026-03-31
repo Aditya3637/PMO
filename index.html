@@ -352,7 +352,7 @@ const av    = (n,c,sz) => {
 
 /* ── STATE ── */
 let U = null, curTab = 'dash';
-let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active';
+let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active', projView = 'list';
 let DB = { buildings:[], people:[], projects:[], milestones:[], tasks:[], pb:[], de:{} };
 
 /* ── SYNC ── */
@@ -831,7 +831,25 @@ function rProj() {
 
   let h = '<div class="ph"><div><div class="pt">Projects</div><div class="ps">'+DB.projects.filter(pr=>pr.status!=='done').length+' active</div></div>';
   h += '<button class="btn btn-p btn-sm" onclick="oPrF()">+ New project</button></div>';
-  h += '<div class="pls"><button class="pl'+(pFil==='active'?' active':'')+'" onclick="pFil=\'active\';rProj()">Active</button><button class="pl'+(pFil==='done'?' active':'')+'" onclick="pFil=\'done\';rProj()">Done</button><button class="pl'+(pFil==='all'?' active':'')+'" onclick="pFil=\'all\';rProj()">All</button></div>';
+
+  // View toggle + filter row
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
+  // Status filters
+  h += '<div class="pls" style="margin-bottom:0;flex:1">';
+  h += '<button class="pl'+(pFil==='active'&&projView==='list'?' active':'')+'" onclick="projView=\'list\';pFil=\'active\';rProj()">Active</button>';
+  h += '<button class="pl'+(pFil==='done'&&projView==='list'?' active':'')+'" onclick="projView=\'list\';pFil=\'done\';rProj()">Done</button>';
+  h += '<button class="pl'+(pFil==='all'&&projView==='list'?' active':'')+'" onclick="projView=\'list\';pFil=\'all\';rProj()">All</button>';
+  h += '</div>';
+  // Gantt toggle button — right side, prominent
+  h += '<button onclick="projView=projView===\'gantt\'?\'list\':\'gantt\';rProj()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid '+(projView==='gantt'?'rgba(99,102,241,.5)':'var(--bdr)')+';background:'+(projView==='gantt'?'rgba(99,102,241,.18)':'var(--glass)')+';color:'+(projView==='gantt'?'var(--ind-l)':'var(--txt2)')+'"><span style="font-size:14px">📊</span>'+(projView==='gantt'?'Exit Gantt':'Gantt view')+'</button>';
+  h += '</div>';
+
+  // ── GANTT VIEW ──
+  if (projView === 'gantt') {
+    h += rGanttFull();
+    document.getElementById('tab-projects').innerHTML = h;
+    return;
+  }
 
   if (!projs.length) {
     h += '<div class="es"><span class="em">📋</span><div class="et">No projects</div><div class="ed">Create your first project and assign a primary owner</div></div>';
@@ -920,7 +938,66 @@ function rProj() {
       if (pbs.length) {
         h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em">Buildings ('+pbs.length+')</div>';
         pbs.forEach(r => {
-          h += '<div class="bpr" onclick="oPBS(\''+r.id+'\')"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+esc(r.b.name)+'<span style="font-size:11px;color:var(--txt3);font-weight:400"> — '+esc(r.b.city||'')+'</span></div>'+(r.remarks?'<div style="font-size:11px;color:var(--txt2);margin-top:3px;font-style:italic">'+esc(r.remarks)+'</div>':'')+'</div><div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+bdg(r.status,BS)+'<span style="font-size:11px;color:var(--txt3)">✎</span></div></div>';
+          const bTasks     = DB.tasks.filter(t => t.buildingRefId===r.id);
+          const bPending   = bTasks.filter(t => t.status!=='done');
+          const bOverdue   = bPending.filter(t => isOD(t.dueDate,t.status));
+          const secOwner   = DB.people.find(p => p.id===r.secondaryOwnerId);
+          const bDoneCount = bTasks.filter(t => t.status==='done').length;
+          const bPct       = bTasks.length ? Math.round(bDoneCount/bTasks.length*100) : 0;
+
+          // Building row
+          h += '<div style="background:var(--glass);border:1px solid '+(bOverdue.length?'rgba(244,63,94,.25)':'var(--bdr)')+';border-radius:10px;margin-bottom:6px;overflow:hidden">';
+
+          // Header row — click opens detail modal
+          h += '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer" onclick="oPBS(\''+r.id+'\')">';
+          h += '<div style="flex:1;min-width:0">';
+          h += '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+          h += '<span style="font-size:13px;font-weight:600">'+esc(r.b.name)+'</span>';
+          h += '<span style="font-size:11px;color:var(--txt3)">'+esc(r.b.city||'')+(r.b.code?' · '+esc(r.b.code):'')+'</span>';
+          h += '</div>';
+          if (r.remarks) h += '<div style="font-size:11px;color:var(--txt2);margin-top:2px;font-style:italic">'+esc(r.remarks)+'</div>';
+          if (secOwner) h += '<div style="display:flex;align-items:center;gap:5px;margin-top:4px">'+av(secOwner.name,secOwner.color,16)+'<span style="font-size:11px;color:var(--txt2)">'+esc(secOwner.name.split(' ')[0])+'</span></div>';
+          h += '</div>';
+          // right side: task count bubble + completion + status + edit
+          h += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">';
+          if (bTasks.length) {
+            const bubbleColor = bOverdue.length ? 'rgba(244,63,94,.18)' : 'rgba(99,102,241,.15)';
+            const bubbleTxt   = bOverdue.length ? 'var(--rose)' : 'var(--ind-l)';
+            h += '<div style="background:'+bubbleColor+';color:'+bubbleTxt+';border-radius:99px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">';
+            h += (bOverdue.length ? '⚠ '+bOverdue.length+' overdue' : bPending.length+' task'+(bPending.length!==1?'s':''))+'</div>';
+          }
+          if (r.targetCompletion) h += '<span style="font-size:11px;color:var(--txt3)">📅 '+fd(r.targetCompletion)+'</span>';
+          h += bdg(r.status,BS);
+          h += '<button onclick="event.stopPropagation();oEB(\''+r.b.id+'\')" class="mb" style="font-size:11px;padding:3px 8px" title="Edit building details">✎</button>';
+          h += '</div></div>';
+
+          // Task mini-list — always visible if tasks exist
+          if (bTasks.length) {
+            h += '<div style="border-top:1px solid var(--bdr);padding:8px 12px">';
+            if (bPct > 0) {
+              h += '<div style="height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:'+bPct+'%;background:'+(bPct===100?'var(--grn)':'var(--ind-l)')+';border-radius:2px"></div></div>';
+            }
+            bTasks.forEach(t => {
+              const pe = DB.people.find(p => p.id===t.assignedTo);
+              const od = isOD(t.dueDate, t.status);
+              h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:'+(od?'rgba(244,63,94,.06)':'rgba(255,255,255,.03)')+';border-radius:7px;margin-bottom:3px;border:1px solid '+(od?'rgba(244,63,94,.15)':'rgba(255,255,255,.04)')+'">';
+              h += '<span onclick="cyStBS(\''+t.id+'\',\''+r.id+'\')" style="cursor:pointer;flex-shrink:0">'+bdg(t.status)+'</span>';
+              h += '<span style="flex:1;font-size:12px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.title)+'</span>';
+              if (t.dueDate) { const dc=od?'var(--rose)':'var(--txt3)'; h += '<span style="font-size:11px;color:'+dc+';flex-shrink:0">'+(od?'⚠ ':'')+fd(t.dueDate)+'</span>'; }
+              if (pe) h += '<span style="flex-shrink:0">'+av(pe.name,pe.color,18)+'</span>';
+              h += '<button onclick="oBldTF(\''+r.id+'\',\''+r.projectId+'\',\''+t.id+'\')" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--txt3);flex-shrink:0;padding:0 2px">✎</button>';
+              h += '</div>';
+            });
+            h += '<button onclick="oBldTF(\''+r.id+'\',\''+r.projectId+'\')" style="width:100%;margin-top:4px;padding:5px;border:1px dashed rgba(99,102,241,.3);border-radius:7px;background:none;color:var(--ind-l);font-size:11px;font-weight:500;cursor:pointer">+ Add task</button>';
+            h += '</div>';
+          } else {
+            h += '<div style="border-top:1px solid var(--bdr);padding:7px 12px;display:flex;align-items:center;justify-content:space-between">';
+            h += '<span style="font-size:11px;color:var(--txt3)">No tasks yet</span>';
+            h += '<button onclick="oBldTF(\''+r.id+'\',\''+r.projectId+'\')" style="padding:3px 10px;border:1px dashed rgba(99,102,241,.3);border-radius:7px;background:none;color:var(--ind-l);font-size:11px;font-weight:500;cursor:pointer">+ Add task</button>';
+            h += '</div>';
+          }
+
+          h += '</div>'; // end building card
         });
         h += '<div style="margin-bottom:12px"></div>';
       }
@@ -971,7 +1048,197 @@ function rProj() {
   document.getElementById('tab-projects').innerHTML = h;
 }
 
-// ── GANTT CHART — building-wise ──
+// ── FULL PAGE GANTT — all projects + buildings ──
+function rGanttFull() {
+  const active = DB.projects.filter(p => p.status !== 'done');
+  if (!active.length) return '<div class="es"><span class="em">📊</span><div class="et">No active projects</div><div class="ed">Create projects and assign buildings with completion dates to see the Gantt</div></div>';
+
+  // Compute global timeline bounds
+  const allDates = [];
+  active.forEach(proj => {
+    if (proj.deadline) allDates.push(proj.deadline);
+    if (proj.created_at) allDates.push(proj.created_at.slice(0,10));
+    DB.pb.filter(r => r.projectId===proj.id).forEach(r => {
+      if (r.targetCompletion) allDates.push(r.targetCompletion);
+    });
+    DB.milestones.filter(m => m.projectId===proj.id && m.deadline).forEach(m => allDates.push(m.deadline));
+  });
+  allDates.push(tday());
+  const sorted = [...allDates].sort();
+  const minDate = new Date(sorted[0]+'T12:00:00');
+  const rawMax  = new Date(sorted[sorted.length-1]+'T12:00:00');
+  // ensure at least 60 days span
+  if ((rawMax - minDate) < 60*86400000) rawMax.setDate(rawMax.getDate()+60);
+  const maxDate = rawMax;
+  const totalMs = maxDate - minDate;
+
+  const pct = ms => Math.max(0, Math.min(100, (ms / totalMs) * 100));
+  const datePct = d => pct(new Date(d+'T12:00:00') - minDate);
+  const todayPct = pct(new Date(tday()+'T12:00:00') - minDate);
+
+  const HEALTH_COLOR = {on_track:'#10b981', at_risk:'#f59e0b', delayed:'#f43f5e', not_started:'#64748b'};
+  const STATUS_COLOR  = {done:'#10b981', in_progress:'#f59e0b', blocked:'#f43f5e', on_hold:'#fb923c', not_started:'#64748b'};
+  const LABEL_W = 160; // px width of label column
+
+  // Month header labels
+  const months = [];
+  const cur = new Date(minDate);
+  cur.setDate(1);
+  while (cur <= maxDate) {
+    const p = pct(new Date(cur) - minDate);
+    months.push({label: cur.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}), pct: Math.max(0, Math.min(98, p))});
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  let h = '<div style="overflow-x:auto;padding-bottom:8px">';
+  h += '<div style="min-width:520px">';
+
+  // Month ruler
+  h += '<div style="display:flex;margin-bottom:6px">';
+  h += '<div style="width:'+LABEL_W+'px;flex-shrink:0"></div>';
+  h += '<div style="flex:1;position:relative;height:20px">';
+  months.forEach(m => {
+    h += '<div style="position:absolute;left:'+m.pct+'%;transform:translateX(-50%);font-size:10px;color:var(--txt3);white-space:nowrap;font-weight:500">'+m.label+'</div>';
+  });
+  h += '</div></div>';
+
+  // Gridlines + today marker background strip
+  h += '<div style="display:flex;margin-bottom:4px">';
+  h += '<div style="width:'+LABEL_W+'px;flex-shrink:0"></div>';
+  h += '<div style="flex:1;position:relative;height:4px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden">';
+  months.forEach(m => {
+    h += '<div style="position:absolute;left:'+m.pct+'%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)"></div>';
+  });
+  if (todayPct >= 0 && todayPct <= 100) {
+    h += '<div style="position:absolute;left:'+todayPct+'%;top:0;bottom:0;width:2px;background:var(--ind-l);opacity:.9"></div>';
+  }
+  h += '</div></div>';
+
+  // Each project
+  active.forEach(proj => {
+    const owner = DB.people.find(p => p.id===proj.primaryOwnerId);
+    const pbs   = DB.pb.filter(r => r.projectId===proj.id).map(r => ({...r, b:DB.buildings.find(b=>b.id===r.buildingId)})).filter(r => r.b);
+    const mils  = DB.milestones.filter(m => m.projectId===proj.id && m.deadline && m.status!=='done');
+    const allT  = DB.tasks.filter(t => t.projectId===proj.id);
+    const taskPct = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
+    const ovd   = allT.filter(t => isOD(t.dueDate,t.status)).length;
+
+    // Compute project bar span
+    const projStartStr = (proj.created_at||new Date().toISOString()).slice(0,10);
+    const bDates = pbs.map(r=>r.targetCompletion).filter(Boolean);
+    const projEndStr = proj.deadline || (bDates.length ? bDates.sort().slice(-1)[0] : null);
+    const barStart = datePct(projStartStr);
+    const barEnd   = projEndStr ? Math.max(barStart+2, datePct(projEndStr)) : barStart+3;
+    const healthColor = HEALTH_COLOR[proj.health||'on_track'];
+
+    // ── Project row ──
+    h += '<div style="display:flex;align-items:center;gap:0;margin-bottom:3px;cursor:pointer" onclick="projView=\'list\';pFil=\'active\';expP[\''+proj.id+'\']=true;rProj()">';
+    // Label
+    h += '<div style="width:'+LABEL_W+'px;flex-shrink:0;padding-right:10px;display:flex;align-items:center;gap:6px">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:'+proj.color+';flex-shrink:0;box-shadow:0 0 5px '+proj.color+'66"></div>';
+    h += '<div style="min-width:0"><div style="font-size:12px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(proj.name)+'">'+esc(proj.name.length>18?proj.name.slice(0,17)+'…':proj.name)+'</div>';
+    if (owner) h += '<div style="font-size:10px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(owner.name.split(' ')[0])+'</div>';
+    h += '</div></div>';
+    // Bar track
+    h += '<div style="flex:1;position:relative;height:28px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid var(--bdr);overflow:hidden">';
+    // Gridlines
+    months.forEach(m => {
+      h += '<div style="position:absolute;left:'+m.pct+'%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.04)"></div>';
+    });
+    // Project bar
+    h += '<div style="position:absolute;left:'+barStart+'%;width:'+(barEnd-barStart)+'%;height:100%;background:'+healthColor+';opacity:.25;border-radius:5px"></div>';
+    // Filled progress within bar
+    if (taskPct > 0) {
+      const fillW = (barEnd-barStart) * taskPct/100;
+      h += '<div style="position:absolute;left:'+barStart+'%;width:'+fillW+'%;height:100%;background:'+healthColor+';opacity:.7;border-radius:5px"></div>';
+    }
+    // Labels inside bar
+    h += '<div style="position:absolute;left:'+(barStart+0.5)+'%;top:0;bottom:0;display:flex;align-items:center;padding:0 6px;pointer-events:none">';
+    h += '<span style="font-size:10px;font-weight:700;color:#fff;white-space:nowrap">'+taskPct+'%'+(ovd?' · ⚠'+ovd:'')+'</span>';
+    h += '</div>';
+    // Today line
+    if (todayPct >= 0 && todayPct <= 100) {
+      h += '<div style="position:absolute;left:'+todayPct+'%;top:0;bottom:0;width:2px;background:var(--ind-l);opacity:.9;z-index:3"></div>';
+    }
+    // Milestone diamonds
+    mils.forEach(mil => {
+      const mp = datePct(mil.deadline);
+      h += '<div style="position:absolute;left:'+mp+'%;top:50%;transform:translate(-50%,-50%) rotate(45deg);width:8px;height:8px;background:#f59e0b;border:1px solid rgba(0,0,0,.3);z-index:4" title="'+esc(mil.name)+' — '+fd(mil.deadline)+'"></div>';
+    });
+    h += '</div>';
+    // Right: health badge
+    h += '<div style="width:56px;flex-shrink:0;padding-left:8px">'+hBdg(proj.health||'on_track')+'</div>';
+    h += '</div>';
+
+    // ── Building sub-rows ──
+    if (pbs.length) {
+      pbs.forEach(r => {
+        const tc = r.targetCompletion;
+        const secOwner = DB.people.find(p => p.id===r.secondaryOwnerId);
+        const bTasks = DB.tasks.filter(t => t.buildingRefId===r.id);
+        const bOD = bTasks.filter(t => isOD(t.dueDate,t.status)).length;
+        const barColor = STATUS_COLOR[r.status] || '#64748b';
+        const bStart = barStart; // buildings start when project starts
+        const bEnd   = tc ? Math.max(bStart+2, datePct(tc)) : bStart+4;
+
+        h += '<div style="display:flex;align-items:center;gap:0;margin-bottom:2px;cursor:pointer" onclick="event.stopPropagation();oPBS(\''+r.id+'\')">';
+        // Label — indented
+        h += '<div style="width:'+LABEL_W+'px;flex-shrink:0;padding-right:10px;padding-left:18px;display:flex;align-items:center;gap:5px">';
+        h += '<div style="width:5px;height:5px;border-radius:50%;background:'+barColor+';flex-shrink:0;opacity:.8"></div>';
+        h += '<div style="min-width:0"><div style="font-size:11px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.b.name)+'">'+esc(r.b.name.length>20?r.b.name.slice(0,19)+'…':r.b.name)+'</div>';
+        if (secOwner) h += '<div style="font-size:10px;color:var(--txt3)">'+esc(secOwner.name.split(' ')[0])+'</div>';
+        h += '</div></div>';
+        // Bar track
+        h += '<div style="flex:1;position:relative;height:20px;background:rgba(255,255,255,.02);border-radius:4px;overflow:hidden">';
+        months.forEach(m => {
+          h += '<div style="position:absolute;left:'+m.pct+'%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.04)"></div>';
+        });
+        // Building bar
+        h += '<div style="position:absolute;left:'+bStart+'%;width:'+(bEnd-bStart)+'%;height:100%;background:'+barColor+';opacity:'+(r.status==='done'?'.8':'.5')+';border-radius:4px;display:flex;align-items:center;padding:0 6px;overflow:hidden">';
+        if (tc) h += '<span style="font-size:10px;color:#fff;font-weight:600;white-space:nowrap">'+fd(tc)+'</span>';
+        h += '</div>';
+        // Today line
+        if (todayPct >= 0 && todayPct <= 100) {
+          h += '<div style="position:absolute;left:'+todayPct+'%;top:0;bottom:0;width:1px;background:var(--ind-l);opacity:.7;z-index:3"></div>';
+        }
+        h += '</div>';
+        // Right: status + overdue badge
+        h += '<div style="width:56px;flex-shrink:0;padding-left:8px;display:flex;flex-direction:column;gap:2px">';
+        h += bdg(r.status, BS);
+        if (bOD) h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">⚠ '+bOD+'</span>';
+        h += '</div>';
+        h += '</div>';
+      });
+      // Spacer
+      h += '<div style="height:6px"></div>';
+    }
+  });
+
+  // Today label
+  if (todayPct >= 0 && todayPct <= 100) {
+    h += '<div style="display:flex;margin-top:4px">';
+    h += '<div style="width:'+LABEL_W+'px;flex-shrink:0"></div>';
+    h += '<div style="flex:1;position:relative;height:16px">';
+    h += '<div style="position:absolute;left:'+todayPct+'%;transform:translateX(-50%);font-size:10px;color:var(--ind-l);font-weight:700;white-space:nowrap">▲ Today '+fd(tday())+'</div>';
+    h += '</div></div>';
+  }
+
+  // Legend
+  h += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">';
+  h += '<span style="font-size:11px;color:var(--txt3);font-weight:600;align-self:center">Legend:</span>';
+  h += '<span style="font-size:11px;color:#10b981">● On track</span>';
+  h += '<span style="font-size:11px;color:#f59e0b">● At risk</span>';
+  h += '<span style="font-size:11px;color:#f43f5e">● Delayed</span>';
+  h += '<span style="font-size:11px;color:var(--txt2)">◆ Milestone</span>';
+  h += '<span style="font-size:11px;color:var(--ind-l)">│ Today</span>';
+  h += '<span style="font-size:11px;color:var(--txt3)">Dark fill = completed %</span>';
+  h += '</div>';
+
+  h += '</div></div>';
+  return h;
+}
+
+// ── GANTT CHART — building-wise (inside expanded project card) ──
 function rGantt(proj, pbs) {
   const allDates = pbs.map(r => r.targetCompletion).filter(Boolean);
   if (proj.deadline) allDates.push(proj.deadline);
