@@ -299,7 +299,6 @@ async function load(){
     DB.buildings=(b.data||[]).map(x=>({...x,softHandover:x.soft_handover,hardHandover:x.hard_handover,btype:x.btype||'operational'}));
     DB.people=p.data||[];
     DB.projects=(pr.data||[]).map(x=>({...x,desc:x.description,primaryStakeholderId:x.primary_stakeholder_id,health:x.health||'on_track',priority:x.priority||'medium'}));
-    DB.subs=(sp.data||[]).map(x=>({...x,projectId:x.project_id}));
     DB.tasks=(t.data||[]).map(x=>({...x,projectId:x.project_id,subProjectId:x.sub_project_id,assignedTo:x.assigned_to,dueDate:x.due_date,followUp:x.follow_up,dependsOn:x.depends_on||[]}));
     DB.pb=(pb.data||[]).map(x=>({...x,projectId:x.project_id,buildingId:x.building_id}));
     const ed={};(de.data||[]).forEach(x=>{ed[x.person_id]=x.content;});DB.de=ed;
@@ -352,143 +351,205 @@ function stakeSelOpts(cur){return `<option value="">— None —</option>${DB.pe
 
 // ── COMMAND CENTRE (DASH) ─────────────────────────────────────────────────────
 function rDash(){
-  const active=DB.projects.filter(p=>p.status!=='done');
-  const hCounts={on_track:0,at_risk:0,delayed:0,not_started:0};
-  active.forEach(p=>hCounts[p.health||'on_track']=(hCounts[p.health||'on_track']||0)+1);
-  const pnd=DB.tasks.filter(t=>t.status!=='done');
-  const ov=pnd.filter(t=>isOD(t.dueDate,t.status));
-  const thisWeek=pnd.filter(t=>{if(!t.dueDate)return false;const d=new Date(t.dueDate+'T12:00:00');const now=new Date();const week=new Date();week.setDate(week.getDate()+7);return d>=now&&d<=week;});
-  const milestonesDue=DB.subs.filter(s=>{if(!s.deadline||s.status==='done')return false;const d=new Date(s.deadline+'T12:00:00');const now=new Date();const week=new Date();week.setDate(week.getDate()+7);return d>=now&&d<=week;});
+  const tmr = new Date(); tmr.setDate(tmr.getDate()+1);
+  const todayStr = td();
+  const tmrStr = tmr.toISOString().slice(0,10);
 
-  let h=`<div class="ph"><div><div class="pt">Command Centre</div><div class="ps">${nowFull()}</div></div></div>`;
+  // All people who own at least one active project
+  const owners = DB.people.filter(p =>
+    DB.projects.some(pr => pr.primaryStakeholderId === p.id && pr.status !== 'done')
+  );
 
-  // Health overview bar
-  h+=`<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
-    ${hCounts.on_track?`<div style="flex:1;min-width:80px;padding:10px 14px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:11px;text-align:center"><div style="font-size:20px;font-weight:700;color:#10b981">${hCounts.on_track}</div><div style="font-size:11px;color:#10b981;margin-top:2px">On Track</div></div>`:''}
-    ${hCounts.at_risk?`<div style="flex:1;min-width:80px;padding:10px 14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:11px;text-align:center"><div style="font-size:20px;font-weight:700;color:#f59e0b">${hCounts.at_risk}</div><div style="font-size:11px;color:#f59e0b;margin-top:2px">At Risk</div></div>`:''}
-    ${hCounts.delayed?`<div style="flex:1;min-width:80px;padding:10px 14px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:11px;text-align:center"><div style="font-size:20px;font-weight:700;color:#f43f5e">${hCounts.delayed}</div><div style="font-size:11px;color:#f43f5e;margin-top:2px">Delayed</div></div>`:''}
-    ${hCounts.not_started?`<div style="flex:1;min-width:80px;padding:10px 14px;background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.15);border-radius:11px;text-align:center"><div style="font-size:20px;font-weight:700;color:#64748b">${hCounts.not_started}</div><div style="font-size:11px;color:#64748b;margin-top:2px">Not Started</div></div>`:''}
-    ${!active.length?`<div style="flex:1;padding:12px;background:var(--glass);border:1px solid var(--bdr);border-radius:11px;font-size:13px;color:var(--txt2);text-align:center">No active projects</div>`:''}
+  let h = `<div class="ph"><div><div class="pt">Command Centre</div><div class="ps">${nowFull()}</div></div></div>`;
+
+  // ── GLOBAL PULSE BAR ───────────────────────────────────────────────────────
+  const active = DB.projects.filter(p=>p.status!=='done');
+  const hCounts = {on_track:0,at_risk:0,delayed:0};
+  active.forEach(p=>{const k=p.health||'on_track';if(k in hCounts)hCounts[k]++;});
+  const totalOD = DB.tasks.filter(t=>isOD(t.dueDate,t.status)).length;
+  const todayAll = DB.tasks.filter(t=>t.status!=='done'&&t.dueDate===todayStr).length;
+  const tmrAll  = DB.tasks.filter(t=>t.status!=='done'&&t.dueDate===tmrStr).length;
+
+  h += `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
+    <div style="grid-column:1/-1;display:flex;gap:6px">
+      ${hCounts.on_track?`<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#10b981">${hCounts.on_track}</div><div style="font-size:10px;color:#10b981;margin-top:1px">On Track</div></div>`:''}
+      ${hCounts.at_risk?`<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f59e0b">${hCounts.at_risk}</div><div style="font-size:10px;color:#f59e0b;margin-top:1px">At Risk</div></div>`:''}
+      ${hCounts.delayed?`<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f43f5e">${hCounts.delayed}</div><div style="font-size:10px;color:#f43f5e;margin-top:1px">Delayed</div></div>`:''}
+      ${!active.length?`<div style="flex:1;padding:10px;background:var(--glass);border:1px solid var(--bdr);border-radius:10px;font-size:12px;color:var(--txt2);text-align:center">No active projects</div>`:''}
+    </div>
+    <div class="sc" style="--ac:#f87171;padding:12px"><div class="sn" style="font-size:24px">${totalOD}</div><div class="sl">Overdue</div></div>
+    <div class="sc" style="--ac:#fbbf24;padding:12px"><div class="sn" style="font-size:24px">${todayAll+tmrAll}</div><div class="sl">Due today &amp; tomorrow</div></div>
   </div>`;
 
-  // Stats
-  h+=`<div class="sg">
-    <div class="sc" style="--ac:#818cf8"><div class="sn">${active.length}</div><div class="sl">Active projects</div></div>
-    <div class="sc" style="--ac:#2dd4bf"><div class="sn">${DB.buildings.length}</div><div class="sl">Buildings</div></div>
-    <div class="sc" style="--ac:#fbbf24"><div class="sn">${pnd.length}</div><div class="sl">Pending tasks</div></div>
-    <div class="sc" style="--ac:#f87171"><div class="sn">${ov.length}</div><div class="sl">Overdue</div></div>
-  </div>`;
+  if(!owners.length){
+    h += `<div class="es"><span class="em">🏗</span><div class="et">Welcome to Taskora PMO</div><div class="ed">Add people, assign them as project owners, and your Command Centre will populate here.</div></div>`;
+    document.getElementById('tab-dash').innerHTML=h;
+    return;
+  }
 
-  // Escalations — overdue grouped by primary stakeholder
-  if(ov.length){
-    h+=`<div style="font-size:13px;font-weight:700;color:var(--rose);margin-bottom:10px">⚠ Needs Attention (${ov.length} overdue)</div>`;
-    // Group by primary stakeholder
-    const byOwner={};
-    ov.forEach(t=>{
-      const proj=DB.projects.find(p=>p.id===t.projectId);
-      const owner=DB.people.find(p=>p.id===proj?.primaryStakeholderId);
-      const key=owner?.id||'__none__';
-      if(!byOwner[key])byOwner[key]={owner,tasks:[]};
-      byOwner[key].tasks.push({task:t,proj});
-    });
-    Object.values(byOwner).slice(0,4).forEach(({owner,tasks})=>{
-      h+=`<div class="gc red" style="margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          ${owner?av(owner.name,owner.color,32):av('?','#64748b',32)}
-          <div><div style="font-size:13px;font-weight:600">${owner?esc(owner.name):'Unassigned'}</div><div style="font-size:11px;color:var(--txt2)">${owner?.role?esc(owner.role):'No primary stakeholder'}</div></div>
+  // ── STAKEHOLDER CARDS ──────────────────────────────────────────────────────
+  h += `<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Project Owners</div>`;
+
+  owners.forEach(person => {
+    const ownedProjs = DB.projects.filter(p => p.primaryStakeholderId === person.id && p.status !== 'done');
+
+    // All tasks across ALL owned projects
+    const allProjIds = new Set(ownedProjs.map(p=>p.id));
+    const allTasks   = DB.tasks.filter(t => allProjIds.has(t.projectId));
+    const pending    = allTasks.filter(t => t.status !== 'done');
+    const done       = allTasks.filter(t => t.status === 'done');
+    const pct        = allTasks.length ? Math.round(done.length/allTasks.length*100) : 0;
+    const overdueT   = pending.filter(t => isOD(t.dueDate, t.status));
+
+    // Tasks due today and tomorrow (across their owned projects)
+    const dueTT = pending.filter(t => t.dueDate === todayStr || t.dueDate === tmrStr);
+    const dueToday = pending.filter(t => t.dueDate === todayStr);
+    const dueTmr   = pending.filter(t => t.dueDate === tmrStr);
+
+    // Health of their projects — worst one
+    const worstHealth = ownedProjs.some(p=>p.health==='delayed') ? 'delayed'
+      : ownedProjs.some(p=>p.health==='at_risk') ? 'at_risk'
+      : ownedProjs.every(p=>p.health==='on_track') ? 'on_track' : 'not_started';
+
+    // Ring colour by worst health
+    const ringColor = worstHealth==='delayed'?'#f43f5e':worstHealth==='at_risk'?'#f59e0b':'#10b981';
+
+    h += `<div class="gc" style="margin-bottom:14px;border-color:${overdueT.length?'rgba(244,63,94,.2)':dueTT.length?'rgba(245,158,11,.18)':'var(--bdr)'}">
+
+      <!-- TOP ROW: avatar + name + stats -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="position:relative;flex-shrink:0">
+          ${av(person.name,person.color,48)}
+          <div style="position:absolute;inset:-3px;border-radius:50%;border:2.5px solid ${ringColor};pointer-events:none"></div>
         </div>
-        ${tasks.slice(0,3).map(({task,proj})=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(244,63,94,.07);border-radius:8px;margin-bottom:4px">
-          <span style="color:var(--rose);font-size:12px;flex-shrink:0">⚠</span>
-          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:#fca5a5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(task.title)}</div>
-          <div style="font-size:11px;color:var(--rose);margin-top:1px">${fd(task.dueDate)} · ${esc(proj?.name||'')}</div></div>
-        </div>`).join('')}
-        ${tasks.length>3?`<div style="font-size:11px;color:var(--rose);padding:4px 10px">+${tasks.length-3} more overdue tasks</div>`:''}
-      </div>`;
-    });
-  }
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;line-height:1.2">${esc(person.name)}</div>
+          ${person.role?`<div style="font-size:11px;color:var(--txt2);margin-top:1px">${esc(person.role)}</div>`:''}
+        </div>
+        <!-- KPI pills -->
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+          ${overdueT.length?`<span class="bd" style="background:rgba(244,63,94,.15);color:var(--rose)">⚠ ${overdueT.length} overdue</span>`:''}
+          ${dueTT.length&&!overdueT.length?`<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">📅 ${dueTT.length} due soon</span>`:''}
+          ${hBdg(worstHealth)}
+        </div>
+      </div>
 
-  // This week's milestones
-  if(milestonesDue.length){
-    h+=`<div style="font-size:13px;font-weight:700;margin-bottom:10px;margin-top:18px">📅 Milestones Due This Week</div>`;
-    milestonesDue.forEach(s=>{
-      const proj=DB.projects.find(p=>p.id===s.projectId);
-      const owner=DB.people.find(p=>p.id===proj?.primaryStakeholderId);
-      h+=`<div class="gc" style="display:flex;align-items:center;gap:10px;padding:11px 14px">
-        ${owner?av(owner.name,owner.color,28):''} 
-        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(s.name)}</div><div style="font-size:11px;color:var(--txt2);margin-top:2px">${esc(proj?.name||'')} · Due ${fd(s.deadline)}</div></div>
-        ${bdg(s.status)}
-      </div>`;
-    });
-  }
+      <!-- KPI ROW: projects · tasks · completion -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)">
+          <div style="font-size:20px;font-weight:700;color:var(--ind-l)">${ownedProjs.length}</div>
+          <div style="font-size:10px;color:var(--txt2);margin-top:2px">Projects</div>
+        </div>
+        <div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)">
+          <div style="font-size:20px;font-weight:700;color:${overdueT.length?'var(--rose)':'var(--txt)'}">${pending.length}</div>
+          <div style="font-size:10px;color:var(--txt2);margin-top:2px">Pending tasks</div>
+        </div>
+        <div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)">
+          <div style="font-size:20px;font-weight:700;color:${pct===100?'var(--grn)':pct>=60?'var(--teal)':'var(--txt)'}">${pct}%</div>
+          <div style="font-size:10px;color:var(--txt2);margin-top:2px">Complete</div>
+        </div>
+      </div>
 
-  // Quick project health list
-  if(active.length&&!ov.length&&!milestonesDue.length){
-    h+=`<div style="font-size:13px;font-weight:700;margin-bottom:10px">All Projects</div>`;
-    active.forEach(proj=>{
-      const owner=DB.people.find(p=>p.id===proj.primaryStakeholderId);
-      const allT=DB.tasks.filter(t=>t.projectId===proj.id);
-      const pct=allT.length?Math.round(allT.filter(t=>t.status==='done').length/allT.length*100):0;
-      h+=`<div class="gc" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="switchTab('projects');setTimeout(()=>{expP['${proj.id}']=true;rProj();},100)">
-        <div style="width:8px;height:8px;border-radius:50%;background:${proj.color};flex-shrink:0;box-shadow:0 0 6px ${proj.color}55"></div>
-        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${esc(proj.name)}</div>${owner?`<div style="font-size:11px;color:var(--txt2);margin-top:1px">${esc(owner.name)}</div>`:''}</div>
-        ${hBdg(proj.health)}
-        <span style="font-size:12px;color:var(--txt3)">${pct}%</span>
-      </div>`;
-    });
-  }
+      <!-- PROGRESS BAR -->
+      <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:14px">
+        <div style="height:100%;width:${pct}%;background:${pct===100?'var(--grn)':person.color};border-radius:2px;transition:width .4s;box-shadow:0 0 5px ${person.color}66"></div>
+      </div>
 
-  if(!DB.projects.length)h+=`<div class="es"><span class="em">🏗</span><div class="et">Welcome to Taskora PMO</div><div class="ed">Start by adding Stakeholders, then create your first Project</div></div>`;
+      <!-- DUE TODAY & TOMORROW — actionable task list -->
+      ${dueTT.length ? `
+        <div style="border-top:1px solid var(--bdr);padding-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+            <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em">Due today &amp; tomorrow</div>
+            <div style="display:flex;gap:5px">
+              ${dueToday.length?`<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">${dueToday.length} today</span>`:''}
+              ${dueTmr.length?`<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">${dueTmr.length} tomorrow</span>`:''}
+            </div>
+          </div>
+          ${dueTT.map(t => {
+            const proj = DB.projects.find(p=>p.id===t.projectId);
+            const executor = DB.people.find(p=>p.id===t.assignedTo);
+            const isToday = t.dueDate === todayStr;
+            const isOd = isOD(t.dueDate, t.status);
+            return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${isOd?'rgba(244,63,94,.07)':isToday?'rgba(245,158,11,.07)':'var(--glass)'};border-radius:9px;border:1px solid ${isOd?'rgba(244,63,94,.2)':isToday?'rgba(245,158,11,.15)':'var(--bdr)'};margin-bottom:5px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;line-height:1.3">${esc(t.title)}</div>
+                <div style="font-size:11px;color:var(--txt2);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                  <span style="color:${isOd?'var(--rose)':isToday?'#f59e0b':'var(--txt3)';font-weight:${isToday||isOd?600:400}">${isOd?'⚠ Overdue':isToday?'Today':'Tomorrow'}</span>
+                  ${proj?`<span>· ${esc(proj.name)}</span>`:''}
+                  ${executor&&executor.id!==person.id?`<span>· ${esc(executor.name.split(' ')[0])}</span>`:''}
+                </div>
+              </div>
+              <!-- Cycle status button -->
+              <button onclick="dshCySt('${t.id}')" style="flex-shrink:0;padding:4px 9px;border-radius:7px;border:1px solid var(--bdr);background:var(--glass);cursor:pointer;font-size:11px;font-weight:600;color:${TS[t.status]?.c||'var(--txt2)'};white-space:nowrap">${TS[t.status]?.l||'—'}</button>
+            </div>`;
+          }).join('')}
+        </div>
+      ` : `
+        <div style="border-top:1px solid var(--bdr);padding-top:12px;text-align:center;font-size:12px;color:var(--txt3)">
+          ${overdueT.length ? `<span style="color:var(--rose)">⚠ ${overdueT.length} overdue — open Projects to action them</span>` : '✓ Nothing due in the next 2 days'}
+        </div>
+      `}
+
+      <!-- Projects owned — compact chips -->
+      ${ownedProjs.length ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;border-top:1px solid var(--bdr);padding-top:11px">
+          ${ownedProjs.map(proj=>`
+            <button onclick="switchTab('projects');setTimeout(()=>{expP['${proj.id}']=true;rProj();},50)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:var(--glass);border:1px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:500;color:var(--txt2)">
+              <div style="width:7px;height:7px;border-radius:50%;background:${proj.color};flex-shrink:0"></div>
+              ${esc(proj.name)}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>`;
+  });
+
   document.getElementById('tab-dash').innerHTML=h;
 }
 
-// ── STAKEHOLDERS ──────────────────────────────────────────────────────────────
+// Cycle task status from dashboard — then re-render dash
+async function dshCySt(id){
+  const t=DB.tasks.find(x=>x.id===id);if(!t)return;
+  const i=SCYC.indexOf(t.status);
+  t.status=SCYC[(i+1)%SCYC.length];
+  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id',U.id);
+  rDash();
+}
+
+// ── PEOPLE ────────────────────────────────────────────────────────────────────
 function rSK(){
-  const primary=DB.people.filter(p=>p.stakeholder_type==='primary');
-  const secondary=DB.people.filter(p=>p.stakeholder_type!=='primary');
-  let h=`<div class="ph"><div><div class="pt">Stakeholders</div><div class="ps">${primary.length} primary · ${secondary.length} secondary</div></div><button class="btn btn-p btn-sm" onclick="oSKF()">+ Add</button></div>
-  <div class="pls">
-    <button class="pl${skTab==='primary'?' active':''}" onclick="skTab='primary';rSK()">Primary (${primary.length})</button>
-    <button class="pl${skTab==='secondary'?' active':''}" onclick="skTab='secondary';rSK()">Secondary (${secondary.length})</button>
-    <button class="pl${skTab==='all'?' active':''}" onclick="skTab='all';rSK()">All</button>
-  </div>`;
+  let h=`<div class="ph"><div><div class="pt">People</div><div class="ps">${DB.people.length} team members</div></div><button class="btn btn-p btn-sm" onclick="oSKF()">+ Add person</button></div>`;
 
-  const show=skTab==='primary'?primary:skTab==='secondary'?secondary:DB.people;
-  if(!show.length)h+=`<div class="es"><span class="em">👥</span><div class="et">No ${skTab!=='all'?skTab:''} stakeholders yet</div><div class="ed">Add your team members to assign accountability and tasks</div></div>`;
+  if(!DB.people.length)h+=`<div class="es"><span class="em">👥</span><div class="et">No people yet</div><div class="ed">Add your team. Assign people as project owners or task executors — the same person can own one project and execute tasks on another.</div></div>`;
 
-  show.forEach(person=>{
-    const isPrimary=person.stakeholder_type==='primary';
-    // For primary: projects they own
-    const ownedProjs=isPrimary?DB.projects.filter(p=>p.primaryStakeholderId===person.id):[];
-    // For secondary: tasks assigned
+  DB.people.forEach(person=>{
+    // Projects where this person is the primary stakeholder (owner)
+    const ownedProjs=DB.projects.filter(p=>p.primaryStakeholderId===person.id&&p.status!=='done');
+    // Tasks assigned to this person
     const myTasks=DB.tasks.filter(t=>t.assignedTo===person.id&&t.status!=='done');
     const myOD=myTasks.filter(t=>isOD(t.dueDate,t.status));
 
     h+=`<div class="gc">
       <div style="display:flex;align-items:flex-start;gap:12px">
-        <div style="position:relative">
-          ${av(person.name,person.color,48)}
-          <div style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;border:2px solid var(--bg);background:${isPrimary?'var(--ind)':'var(--teal)'};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${isPrimary?'P':'S'}</div>
-        </div>
+        ${av(person.name,person.color,48)}
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div style="font-size:15px;font-weight:700">${esc(person.name)}</div>
-            <span class="bd" style="background:${isPrimary?'rgba(99,102,241,.14)':'rgba(20,184,166,.12)'};color:${isPrimary?'var(--ind-l)':'var(--teal)'}">${isPrimary?'Primary':'Secondary'}</span>
-          </div>
+          <div style="font-size:15px;font-weight:700">${esc(person.name)}</div>
           ${person.role?`<div style="font-size:12px;color:var(--txt2);margin-top:2px">${esc(person.role)}</div>`:''}
           ${person.phone?`<div style="font-size:12px;color:var(--txt3);margin-top:2px">📱 ${esc(person.phone)}</div>`:''}
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            ${isPrimary&&ownedProjs.length?`<span class="bd" style="background:rgba(99,102,241,.12);color:var(--ind-l)">${ownedProjs.length} project${ownedProjs.length!==1?'s':''}</span>`:''}
-            ${myTasks.length?`<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">${myTasks.length} task${myTasks.length!==1?'s':''}</span>`:''}
+            ${ownedProjs.length?`<span class="bd" style="background:rgba(99,102,241,.14);color:var(--ind-l)">Owns ${ownedProjs.length} project${ownedProjs.length!==1?'s':''}</span>`:''}
+            ${myTasks.length?`<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">${myTasks.length} task${myTasks.length!==1?'s':''} assigned</span>`:''}
             ${myOD.length?`<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">${myOD.length} overdue</span>`:''}
           </div>
-          ${isPrimary&&ownedProjs.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+          ${ownedProjs.length?`<div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
             ${ownedProjs.map(proj=>{
               const allT=DB.tasks.filter(t=>t.projectId===proj.id);
               const pct=allT.length?Math.round(allT.filter(t=>t.status==='done').length/allT.length*100):0;
+              const od=allT.filter(t=>isOD(t.dueDate,t.status)).length;
               return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--glass);border-radius:8px;cursor:pointer" onclick="switchTab('projects');setTimeout(()=>{expP['${proj.id}']=true;rProj();},100)">
                 <div style="width:7px;height:7px;border-radius:50%;background:${proj.color};flex-shrink:0;box-shadow:0 0 5px ${proj.color}55"></div>
-                <span style="flex:1;font-size:12px;font-weight:500;color:var(--txt)">${esc(proj.name)}</span>
-                ${hBdg(proj.health)}
+                <span style="flex:1;font-size:12px;font-weight:500">${esc(proj.name)}</span>
+                ${od?`<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">⚠ ${od}</span>`:hBdg(proj.health)}
                 <span style="font-size:11px;color:var(--txt3)">${pct}%</span>
               </div>`;
             }).join('')}
@@ -506,26 +567,30 @@ function rSK(){
 
 function oSKF(id){
   const p=id?DB.people.find(x=>x.id===id):null;
-  OS(id?'Edit stakeholder':'Add stakeholder',`
+  OS(id?'Edit person':'Add person',`
     <div class="fr">
       <div class="fg"><label class="fl">Full name</label><input id="sk-n" class="gi" placeholder="e.g. Rajesh Kumar" value="${esc(p?.name||'')}"></div>
       <div class="fg"><label class="fl">Role / title</label><input id="sk-r" class="gi" placeholder="e.g. VP Operations" value="${esc(p?.role||'')}"></div>
     </div>
-    <div class="fr">
-      <div class="fg"><label class="fl">Type</label><select id="sk-t" class="gi"><option value="primary"${(p?.stakeholder_type||'secondary')==='primary'?' selected':''}>Primary (VP/GM)</option><option value="secondary"${(p?.stakeholder_type||'secondary')==='secondary'?' selected':''}>Secondary (Ops/PM)</option></select></div>
-      <div class="fg"><label class="fl">WhatsApp</label><input id="sk-p" class="gi" type="tel" placeholder="91XXXXXXXXXX" value="${esc(p?.phone||'')}"></div>
-    </div>
+    <div class="fg"><label class="fl">WhatsApp number</label><input id="sk-p" class="gi" type="tel" placeholder="91XXXXXXXXXX" value="${esc(p?.phone||'')}"></div>
     ${CP('sk-c',p?.color||CLRS[Math.floor(Math.random()*CLRS.length)])}
-    <div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svSK('${id||''}')">Save stakeholder</button></div>`);
+    <div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svSK('${id||''}')">Save</button></div>`);
 }
 async function svSK(id){
   const name=val('sk-n').trim();if(!name)return;
-  const obj={name,role:val('sk-r').trim(),stakeholder_type:val('sk-t'),phone:val('sk-p').trim(),color:val('sk-c')};
+  const obj={name,role:val('sk-r').trim(),phone:val('sk-p').trim(),color:val('sk-c')};
   if(id){await SB.from('people').update(obj).eq('id',id).eq('user_id',U.id);DB.people=DB.people.map(x=>x.id===id?{...x,...obj}:x);}
   else{const{data}=await SB.from('people').insert({...obj,user_id:U.id}).select().single();if(data)DB.people.push(data);}
   CS();rSK();
 }
-async function dSK(id){if(!confirm('Delete this stakeholder?'))return;await del('people',id);DB.people=DB.people.filter(x=>x.id!==id);DB.tasks=DB.tasks.map(t=>t.assignedTo===id?{...t,assignedTo:null}:t);DB.projects=DB.projects.map(p=>p.primaryStakeholderId===id?{...p,primaryStakeholderId:null}:p);rSK();}
+async function dSK(id){
+  if(!confirm('Delete this person?'))return;
+  await del('people',id);
+  DB.people=DB.people.filter(x=>x.id!==id);
+  DB.tasks=DB.tasks.map(t=>t.assignedTo===id?{...t,assignedTo:null}:t);
+  DB.projects=DB.projects.map(p=>p.primaryStakeholderId===id?{...p,primaryStakeholderId:null}:p);
+  rSK();
+}
 
 // ── PROJECTS ──────────────────────────────────────────────────────────────────
 function trow(t){
@@ -806,76 +871,92 @@ function pImp(){const raw=val('ir');const eL=DB.buildings.map(b=>b.name.toLowerC
 async function doImp(){const eL=DB.buildings.map(b=>b.name.toLowerCase());const rows=impP.filter(b=>!eL.includes(b.name.toLowerCase())).map(r=>({user_id:U.id,serial:r.serial,city:r.city,code:r.code,name:r.name,btype:r.btype,soft_handover:r.btype==='new'&&r.softHandover?r.softHandover:null,hard_handover:r.btype==='new'&&r.hardHandover?r.hardHandover:null}));const{data}=await SB.from('buildings').insert(rows).select();if(data)data.forEach(b=>DB.buildings.push({...b,softHandover:b.soft_handover,hardHandover:b.hard_handover,btype:b.btype||'operational'}));CS();rBld();}
 
 // ── DIGEST ────────────────────────────────────────────────────────────────────
-// Generated per PRIMARY stakeholder — summarises their projects, teams, buildings
+// Generated per project OWNER — focused on overdue and at-risk items only
 function aMsg(person){
   const ownedProjs=DB.projects.filter(p=>p.primaryStakeholderId===person.id&&p.status!=='done');
   if(!ownedProjs.length)return null;
-  const today=td();
-  let msg=`*Project Update — ${person.name}*\n${nowFull()}\n`;
+
+  // Collect all overdue tasks across their projects
+  const overdueByProj={};
+  const atRiskProjs=[];
   ownedProjs.forEach(proj=>{
-    const allT=DB.tasks.filter(t=>t.projectId===proj.id);
-    const pend=allT.filter(t=>t.status!=='done');
-    const ovd=pend.filter(t=>isOD(t.dueDate,t.status));
-    const pct=allT.length?Math.round(allT.filter(t=>t.status==='done').length/allT.length*100):0;
-    const pbs=DB.pb.filter(r=>r.projectId===proj.id);
-    msg+=`\n━━━━━━━━━━━━━━━━━━\n📁 *${proj.name}*\n`;
-    msg+=`   Health: ${HS[proj.health]?.l||'On Track'} · ${pct}% complete\n`;
-    if(proj.deadline)msg+=`   Deadline: ${fd(proj.deadline)}\n`;
-    if(ovd.length)msg+=`   ⚠ *${ovd.length} overdue task${ovd.length!==1?'s':''}*\n`;
-    // Milestones
-    const mils=DB.subs.filter(s=>s.projectId===proj.id&&s.status!=='done');
-    if(mils.length){
-      msg+=`\n📍 *Milestones:*\n`;
-      mils.forEach(m=>{msg+=`   • ${m.name}${m.deadline?' — '+fd(m.deadline):''} [${TS[m.status]?.l||m.status}]\n`;});
-    }
-    // Buildings
-    if(pbs.length){
-      msg+=`\n🏢 *Building Status:*\n`;
-      pbs.forEach(r=>{const bl=DB.buildings.find(b=>b.id===r.buildingId);if(!bl)return;msg+=`   • ${bl.name}${bl.city?', '+bl.city:''} → ${BS[r.status]?.l||r.status}\n`;if(r.remarks)msg+=`     ↳ ${r.remarks}\n`;});
-    }
-    // Tasks grouped by secondary stakeholder
-    const byPerson={};
-    pend.forEach(t=>{const k=t.assignedTo||'__none__';if(!byPerson[k])byPerson[k]=[];byPerson[k].push(t);});
-    if(Object.keys(byPerson).length){
-      msg+=`\n📋 *Tasks by team:*\n`;
-      Object.entries(byPerson).forEach(([k,tasks])=>{
-        const pe=DB.people.find(p=>p.id===k);
-        if(pe)msg+=`\n👤 *${pe.name}*\n`;
-        tasks.forEach(t=>{
-          const od=isOD(t.dueDate,t.status);
-          msg+=`   ${od?'⚠️':'•'} *${t.title}*\n`;
-          msg+=`      Status: ${TS[t.status]?.l||t.status}${od?' — OVERDUE':''}\n`;
-          if(t.dueDate)msg+=`      Due: ${fd(t.dueDate)}\n`;
-          if(t.notes)msg+=`      Note: ${t.notes}\n`;
-        });
-      });
-    }
+    const projTasks=DB.tasks.filter(t=>t.projectId===proj.id&&t.status!=='done');
+    const od=projTasks.filter(t=>isOD(t.dueDate,t.status));
+    if(od.length)overdueByProj[proj.id]={proj,tasks:od};
+    if(proj.health==='at_risk'||proj.health==='delayed')atRiskProjs.push(proj);
   });
-  const totalOD=DB.tasks.filter(t=>ownedProjs.some(p=>p.id===t.projectId)&&isOD(t.dueDate,t.status)).length;
-  msg+=`\n━━━━━━━━━━━━━━━━━━\n📊 *${ownedProjs.length} active project${ownedProjs.length!==1?'s':''}*`;
-  if(totalOD)msg+=` · *${totalOD} overdue ⚠️*`;
+
+  const hasOverdue=Object.keys(overdueByProj).length>0;
+  const hasAtRisk=atRiskProjs.length>0;
+
+  // If nothing to flag, return null (clean slate = no digest needed)
+  if(!hasOverdue&&!hasAtRisk)return null;
+
+  let msg=`*⚠ Action Required — ${person.name}*\n${nowFull()}\n`;
+
+  // OVERDUE SECTION
+  if(hasOverdue){
+    msg+=`\n━━━━━━━━━━━━━━━━━━\n🔴 *OVERDUE TASKS*\n`;
+    Object.values(overdueByProj).forEach(({proj,tasks})=>{
+      msg+=`\n📁 *${proj.name}*\n`;
+      tasks.forEach(t=>{
+        const pe=DB.people.find(p=>p.id===t.assignedTo);
+        msg+=`   ⚠️ *${t.title}*\n`;
+        msg+=`      Was due: ${fd(t.dueDate)}\n`;
+        if(pe)msg+=`      Responsible: ${pe.name}\n`;
+        if(t.notes)msg+=`      Note: ${t.notes}\n`;
+        const deps=(t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');
+        if(deps.length)msg+=`      ⛓ Blocked by: ${deps.map(d=>d.title).join(', ')}\n`;
+      });
+    });
+  }
+
+  // AT RISK / DELAYED SECTION
+  if(hasAtRisk){
+    msg+=`\n━━━━━━━━━━━━━━━━━━\n🟡 *PROJECTS NEEDING ATTENTION*\n`;
+    atRiskProjs.forEach(proj=>{
+      const allT=DB.tasks.filter(t=>t.projectId===proj.id);
+      const pct=allT.length?Math.round(allT.filter(t=>t.status==='done').length/allT.length*100):0;
+      const nextMil=DB.subs.filter(s=>s.projectId===proj.id&&s.status!=='done'&&s.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline))[0];
+      const pbs=DB.pb.filter(r=>r.projectId===proj.id);
+      msg+=`\n📁 *${proj.name}* — ${HS[proj.health]?.l||'At Risk'}\n`;
+      msg+=`   Progress: ${pct}%\n`;
+      if(proj.deadline)msg+=`   Deadline: ${fd(proj.deadline)}\n`;
+      if(nextMil)msg+=`   Next milestone: ${nextMil.name} (${fd(nextMil.deadline)})\n`;
+      // Blocked building statuses
+      const blockedBlds=pbs.filter(r=>r.status==='blocked'||r.status==='on_hold');
+      if(blockedBlds.length){
+        msg+=`   🏢 Blocked buildings:\n`;
+        blockedBlds.forEach(r=>{const bl=DB.buildings.find(b=>b.id===r.buildingId);if(!bl)return;msg+=`      • ${bl.name}${bl.city?', '+bl.city:''} — ${BS[r.status]?.l||r.status}${r.remarks?' ('+r.remarks+')':''}\n`;});
+      }
+    });
+  }
+
+  msg+=`\n━━━━━━━━━━━━━━━━━━`;
+  const totalOD=Object.values(overdueByProj).reduce((s,{tasks})=>s+tasks.length,0);
+  if(totalOD)msg+=`\n📊 *${totalOD} overdue task${totalOD!==1?'s':''} require immediate action*`;
   return msg;
 }
 async function svDE(pid){const el=document.getElementById('de-'+pid);if(!el)return;const content=el.value;DB.de[pid]=content;await SB.from('digest_edits').upsert({user_id:U.id,person_id:pid,content,updated_at:new Date().toISOString()},{onConflict:'user_id,person_id'});const ind=document.getElementById('di-'+pid);if(ind){ind.textContent='Saved ✓';ind.style.color='var(--grn)';setTimeout(()=>{if(ind)ind.textContent='';},1500);}}
 async function rgDig(pid){if(!confirm('Discard your edits and regenerate?'))return;const person=DB.people.find(p=>p.id===pid);const fresh=aMsg(person)||'';const el=document.getElementById('de-'+pid);if(el)el.value=fresh;delete DB.de[pid];await SB.from('digest_edits').delete().eq('user_id',U.id).eq('person_id',pid);const ind=document.getElementById('di-'+pid);if(ind){ind.textContent='Regenerated';ind.style.color='var(--ind-l)';setTimeout(()=>{if(ind)ind.textContent='';},1500);}}
 async function rgAll(){if(!confirm('Discard ALL edits and regenerate all messages?'))return;DB.de={};await SB.from('digest_edits').delete().eq('user_id',U.id);rDig();}
 function rDig(){
-  const primaries=DB.people.filter(p=>p.stakeholder_type==='primary');
-  const dig=primaries.map(p=>{const auto=aMsg(p);const msg=DB.de[p.id]!==undefined?DB.de[p.id]:auto;return{person:p,msg,auto,hasEdit:DB.de[p.id]!==undefined};}).filter(x=>x.auto);
-  let h=`<div class="ph"><div><div class="pt">Daily Digest</div><div class="ps">Sent to primary stakeholders · ${nowFull()}</div></div><button class="btn btn-g btn-sm" onclick="rgAll()">↺ Regen all</button></div>
-  <div style="font-size:12px;color:var(--txt2);margin-bottom:20px;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">Generated per <strong>primary stakeholder</strong> — includes their projects, team tasks, and building statuses. Edit any message before sending.</div>`;
-  if(!dig.length)h+=`<div class="es"><span class="em">🎉</span><div class="et">Nothing to digest</div><div class="ed">Add primary stakeholders and assign them to projects to generate digests</div></div>`;
+  const dig=DB.people.filter(p=>DB.projects.some(pr=>pr.primaryStakeholderId===p.id&&pr.status!=='done')).map(p=>{const auto=aMsg(p);const msg=DB.de[p.id]!==undefined?DB.de[p.id]:auto;return{person:p,msg,auto,hasEdit:DB.de[p.id]!==undefined};}).filter(x=>x.auto);
+  let h=`<div class="ph"><div><div class="pt">Daily Digest</div><div class="ps">Overdue & at-risk items only · ${nowFull()}</div></div><button class="btn btn-g btn-sm" onclick="rgAll()">↺ Regen all</button></div>
+  <div style="font-size:12px;color:var(--txt2);margin-bottom:20px;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">Generated per project owner. Only shows <strong style="color:var(--rose)">overdue tasks</strong> and <strong style="color:var(--amb)">at-risk/delayed projects</strong> — nothing else.</div>`;
+  if(!dig.length)h+=`<div class="es"><span class="em">🎉</span><div class="et">All clear!</div><div class="ed">No overdue tasks or at-risk projects. Nothing to flag today.</div></div>`;
   dig.forEach(({person,msg,auto,hasEdit})=>{
     const ownedProjs=DB.projects.filter(p=>p.primaryStakeholderId===person.id&&p.status!=='done');
     const totalOD=DB.tasks.filter(t=>ownedProjs.some(p=>p.id===t.projectId)&&isOD(t.dueDate,t.status)).length;
+    const atRisk=ownedProjs.filter(p=>p.health==='at_risk'||p.health==='delayed').length;
     const isEd=hasEdit&&msg!==auto;
     h+=`<div class="gc" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
         ${av(person.name,person.color,46)}
-        <div style="flex:1"><div style="font-size:15px;font-weight:700">${esc(person.name)}</div><div style="font-size:12px;color:var(--txt2)">${esc(person.role||'Primary Stakeholder')}</div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700">${esc(person.name)}</div><div style="font-size:12px;color:var(--txt2)">${esc(person.role||'Project Owner')}</div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <span class="bd" style="background:rgba(99,102,241,.14);color:var(--ind-l)">${ownedProjs.length} project${ownedProjs.length!==1?'s':''}</span>
-          ${totalOD?`<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">${totalOD} overdue ⚠️</span>`:''}
+          ${totalOD?`<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">🔴 ${totalOD} overdue</span>`:''}
+          ${atRisk?`<span class="bd" style="background:rgba(245,158,11,.14);color:#f59e0b">🟡 ${atRisk} at risk</span>`:''}
           ${isEd?`<span class="bd" style="background:rgba(245,158,11,.12);color:#fbbf24">✎ Edited</span>`:''}
         </div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
