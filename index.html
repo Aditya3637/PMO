@@ -654,6 +654,10 @@ function buildNav() {
     }
   });
   updateNotifBadge();
+  // Re-attach click listeners after rebuilding nav HTML
+  document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
+    b.addEventListener('click', () => switchTab(b.dataset.tab));
+  });
 }
 
 function switchTab(id) {
@@ -3327,8 +3331,108 @@ async function svSchedule() {
 }
 
 /* ══════════════════════════════════════════════════════
-   SERVICE WORKER — UPDATE DETECTION
+   TOAST NOTIFICATIONS (in-app)
 ══════════════════════════════════════════════════════ */
+function showToast(msg, type) {
+  // Remove any existing toast
+  const existing = document.getElementById('_toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.id = '_toast';
+  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:800;padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;animation:fadeIn .2s;box-shadow:0 4px 20px rgba(0,0,0,.4);pointer-events:none';
+  t.style.background = type === 'ok' ? 'var(--grn)' : type === 'err' ? 'var(--rose)' : 'var(--ind)';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { if (t.parentNode) t.remove(); }, 2800);
+}
+
+/* ══════════════════════════════════════════════════════
+   TEAM REQUEST FLOW (invite accept/decline)
+══════════════════════════════════════════════════════ */
+async function checkTeamRequests() {
+  if (!U?.email) return;
+  try {
+    const { data } = await SB.from('team_requests')
+      .select('*')
+      .eq('invitee_email', U.email)
+      .eq('status', 'pending');
+    if (data && data.length) showTeamRequestBanner(data);
+  } catch(e) {}
+}
+
+function showTeamRequestBanner(requests) {
+  const existing = document.getElementById('team-req-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'team-req-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:600;';
+
+  let inner = '';
+  requests.forEach(req => {
+    inner += `<div style="background:linear-gradient(135deg,rgba(99,102,241,.97),rgba(20,184,166,.9));backdrop-filter:blur(16px);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.15);">
+      <div style="font-size:20px;flex-shrink:0">🏢</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:#fff">You've been added to Founder's Office</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">By <strong>${esc(req.chairman_name||'the chairman')}</strong> — tap Accept to join and see your projects &amp; tasks.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="acceptTeamReq('${req.id}','${req.person_id}')" style="padding:8px 18px;border-radius:8px;background:#fff;color:#4f46e5;font-size:13px;font-weight:700;border:none;cursor:pointer">✓ Accept</button>
+        <button onclick="declineTeamReq('${req.id}')" style="padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:600;border:1px solid rgba(255,255,255,.3);cursor:pointer">✕</button>
+      </div>
+    </div>`;
+  });
+
+  banner.innerHTML = inner;
+  document.body.prepend(banner);
+  // Push content down
+  const contentEl = document.getElementById('content');
+  if (contentEl) contentEl.style.paddingTop = (banner.offsetHeight + 4) + 'px';
+}
+
+async function acceptTeamReq(reqId, personId) {
+  try {
+    await SB.from('team_requests').update({ status: 'accepted' }).eq('id', reqId);
+    await SB.from('people').update({ invite_status: 'accepted' }).eq('id', personId);
+    DB.people = DB.people.map(p => p.id === personId ? { ...p, invite_status: 'accepted' } : p);
+
+    const { data: req } = await SB.from('team_requests').select('*').eq('id', reqId).single();
+    if (req) {
+      const person = DB.people.find(p => p.id === personId);
+      await SB.from('workspace_access').upsert({
+        chairman_user_id: req.chairman_id,
+        member_user_id: U.id,
+        role_level: person?.role_level || 'member',
+        person_id: personId,
+      }, { onConflict: 'chairman_user_id,member_user_id' });
+      MY_ROLE      = person?.role_level || 'member';
+      MY_PERSON_ID = personId;
+      CHAIRMAN_UID = req.chairman_id;
+    }
+  } catch(e) {}
+
+  const banner = document.getElementById('team-req-banner');
+  if (banner) banner.remove();
+  const contentEl = document.getElementById('content');
+  if (contentEl) contentEl.style.paddingTop = '';
+
+  showToast('✓ You\'re now part of Founder\'s Office!', 'ok');
+  await load();
+  buildNav();
+  renderTab('dash');
+}
+
+async function declineTeamReq(reqId) {
+  try {
+    await SB.from('team_requests').update({ status: 'declined' }).eq('id', reqId);
+  } catch(e) {}
+  const banner = document.getElementById('team-req-banner');
+  if (banner) banner.remove();
+  const contentEl = document.getElementById('content');
+  if (contentEl) contentEl.style.paddingTop = '';
+}
+
+
 let _waitingSW = null;
 
 function applyUpdate() {
