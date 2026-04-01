@@ -2191,66 +2191,343 @@ async function doImp() {
    DIGEST
 ══════════════════════════════════════════════════════ */
 function buildMsg(person) {
+  const today     = tday();
+  const oneWeek   = new Date(); oneWeek.setDate(oneWeek.getDate()+7);
+  const weekStr   = oneWeek.toISOString().slice(0,10);
+  const threeDays = new Date(); threeDays.setDate(threeDays.getDate()-3);
+  const threeDayStr = threeDays.toISOString().slice(0,10);
+
   const ownedProjs = DB.projects.filter(pr => pr.primaryOwnerId===person.id && pr.status!=='done');
   if (!ownedProjs.length) return null;
 
-  const overdueByProj = {};
-  const atRiskProjs   = [];
-  ownedProjs.forEach(pr => {
-    const tasks = DB.tasks.filter(t => t.projectId===pr.id && t.status!=='done');
-    const od    = tasks.filter(t => isOD(t.dueDate,t.status));
-    if (od.length) overdueByProj[pr.id] = {proj:pr, tasks:od};
-    if (pr.health==='at_risk'||pr.health==='delayed') atRiskProjs.push(pr);
+  // ── Gather every signal per project ─────────────────────────────────────
+  const signals = [];
+
+  ownedProjs.forEach(proj => {
+    const allT    = DB.tasks.filter(t => t.projectId===proj.id);
+    const pendT   = allT.filter(t => t.status!=='done');
+    const pct     = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
+
+    // 1. Overdue tasks
+    const overdue = pendT.filter(t => isOD(t.dueDate, t.status));
+
+    // 2. Blocked tasks
+    const blocked = pendT.filter(t => t.status==='blocked');
+
+    // 3. Awaiting tasks
+    const awaiting = pendT.filter(t => t.status==='awaiting');
+
+    // 4. Critical overdue >3 days
+    const critOD = overdue.filter(t => t.dueDate && t.dueDate < threeDayStr);
+
+    // 5. Tasks due this week (upcoming urgency)
+    const dueSoon = pendT.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= weekStr && t.status!=='blocked');
+
+    // 6. Tasks with no assignee but have a due date
+    const unassigned = pendT.filter(t => !t.assignedTo && t.dueDate);
+
+    // 7. Milestones due this week
+    const milsDue = DB.milestones.filter(m =>
+      m.projectId===proj.id && m.status!=='done' && m.deadline && m.deadline<=weekStr
+    );
+
+    // 8. Buildings on hold or blocked
+    const pbIssues = DB.pb.filter(r =>
+      r.projectId===proj.id && (r.status==='blocked'||r.status==='on_hold')
+    ).map(r => ({...r, b:DB.buildings.find(b=>b.id===r.buildingId)})).filter(r=>r.b);
+
+    // 9. Project health signal
+    const healthIssue = ['delayed','at_risk','not_started'].includes(proj.health||'');
+
+    // 10. Zero progress on active project
+    const zeroProgress = allT.length > 0 && pct === 0;
+
+    // 11. Project past deadline
+    const pastDeadline = proj.deadline && proj.deadline < today && proj.status !== 'done';
+
+    // 12. Pending documents
+    const pendingDocs = DB.docs.filter(d =>
+      d.entity_type==='project' && d.entity_id===proj.id && d.doc_status==='pending'
+    );
+    const pbPendingDocs = DB.pb
+      .filter(r=>r.projectId===proj.id)
+      .flatMap(r => DB.docs.filter(d=>d.entity_type==='project_building'&&d.entity_id===r.id&&d.doc_status==='pending')
+        .map(d=>({...d,bName:(DB.buildings.find(b=>b.id===r.buildingId)||{}).name||''}))
+      );
+
+    const hasAnything = overdue.length||blocked.length||awaiting.length||milsDue.length||
+      pbIssues.length||healthIssue||zeroProgress||pastDeadline||unassigned.length||
+      pendingDocs.length||pbPendingDocs.length;
+
+    if (hasAnything) {
+      signals.push({
+        proj, pct, overdue, critOD, blocked, awaiting,
+        dueSoon, unassigned, milsDue, pbIssues,
+        healthIssue, zeroProgress, pastDeadline,
+        pendingDocs, pbPendingDocs
+      });
+    }
   });
 
-  const hasOD  = Object.keys(overdueByProj).length > 0;
-  const hasAR  = atRiskProjs.length > 0;
-  if (!hasOD && !hasAR) return null;
+  if (!signals.length) return null;
 
-  let msg = '*⚠ Action Required — '+person.name+'*\n'+nowFull()+'\n';
+  const totalOverdue  = signals.reduce((s,x)=>s+x.overdue.length,0);
+  const totalBlocked  = signals.reduce((s,x)=>s+x.blocked.length,0);
+  const totalAwaiting = signals.reduce((s,x)=>s+x.awaiting.length,0);
 
-  if (hasOD) {
-    msg += '\n━━━━━━━━━━━━━━━━━━\n🔴 *OVERDUE TASKS*\n';
-    Object.values(overdueByProj).forEach(({proj,tasks}) => {
-      msg += '\n📁 *'+proj.name+'*\n';
-      tasks.forEach(t => {
-        const pe   = DB.people.find(p => p.id===t.assignedTo);
-        const deps = (t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');
-        msg += '   ⚠️ *'+t.title+'*\n';
-        msg += '      Was due: '+fd(t.dueDate)+'\n';
-        if (pe)         msg += '      Responsible: '+pe.name+'\n';
-        if (t.notes)    msg += '      Note: '+t.notes+'\n';
-        if (deps.length) msg += '      ⛓ Blocked by: '+deps.map(d=>d.title).join(', ')+'\n';
+  let msg = '*Founder\'s Office — Daily Status · '+person.name+'*\n';
+  msg += fd(today)+'\n';
+  msg += '━━━━━━━━━━━━━━━━━━━━━━━━\n';
+
+  // Summary line
+  const parts = [];
+  if (totalOverdue)  parts.push(totalOverdue+' overdue');
+  if (totalBlocked)  parts.push(totalBlocked+' blocked');
+  if (totalAwaiting) parts.push(totalAwaiting+' awaiting');
+  if (parts.length) msg += '🔴 Needs immediate action: '+parts.join(' · ')+'\n';
+  msg += '\n';
+
+  signals.forEach(({proj,pct,overdue,critOD,blocked,awaiting,dueSoon,unassigned,milsDue,pbIssues,healthIssue,zeroProgress,pastDeadline,pendingDocs,pbPendingDocs}) => {
+
+    // Project header
+    const healthLabel = {on_track:'✅ On Track',at_risk:'⚠️ At Risk',delayed:'🔴 Delayed',not_started:'⭕ Not Started'}[proj.health||'on_track'];
+    msg += '━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    msg += '📁 *'+proj.name+'*';
+    msg += '  '+healthLabel+'  '+pct+'% complete\n';
+    if (proj.deadline) {
+      const isPastDL = proj.deadline < today;
+      msg += '   📅 Deadline: '+fd(proj.deadline)+(isPastDL?' 🔴 PAST DUE':'')+ '\n';
+    }
+    msg += '\n';
+
+    // Critical overdue (>3 days)
+    if (critOD.length) {
+      msg += '   🚨 *CRITICAL — Overdue >3 days ('+critOD.length+')*\n';
+      critOD.forEach(t => {
+        const pe   = DB.people.find(p=>p.id===t.assignedTo);
+        const daysOD = Math.floor((Date.now()-new Date(t.dueDate+'T12:00:00').getTime())/86400000);
+        msg += '   • '+t.title+'\n';
+        msg += '     Was due: '+fd(t.dueDate)+' ('+daysOD+' days ago)\n';
+        if (pe) msg += '     Responsible: '+pe.name+'\n';
+        if (t.notes) msg += '     Note: '+t.notes+'\n';
       });
-    });
-  }
+      msg += '\n';
+    }
 
-  if (hasAR) {
-    msg += '\n━━━━━━━━━━━━━━━━━━\n🟡 *PROJECTS NEEDING ATTENTION*\n';
-    atRiskProjs.forEach(pr => {
-      const allT   = DB.tasks.filter(t => t.projectId===pr.id);
-      const pct    = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
-      const nextMil = DB.milestones.filter(m=>m.projectId===pr.id&&m.status!=='done'&&m.deadline).sort((a,b)=>a.deadline.localeCompare(b.deadline))[0];
-      const blocked = DB.pb.filter(r=>r.projectId===pr.id&&(r.status==='blocked'||r.status==='on_hold'));
-      msg += '\n📁 *'+pr.name+'* — '+(HS[pr.health]?.l||'At Risk')+'\n';
-      msg += '   Progress: '+pct+'%\n';
-      if (pr.deadline)  msg += '   Deadline: '+fd(pr.deadline)+'\n';
-      if (nextMil)      msg += '   Next milestone: '+nextMil.name+' ('+fd(nextMil.deadline)+')\n';
-      if (blocked.length) {
-        msg += '   🏢 Blocked buildings:\n';
-        blocked.forEach(r => {
-          const bl = DB.buildings.find(b=>b.id===r.buildingId);
-          if (!bl) return;
-          msg += '      • '+bl.name+(bl.city?', '+bl.city:'')+' — '+(BS[r.status]?.l||r.status)+(r.remarks?' ('+r.remarks+')':'')+'\n';
-        });
-      }
-    });
-  }
+    // Regular overdue (≤3 days)
+    const regularOD = overdue.filter(t=>!critOD.includes(t));
+    if (regularOD.length) {
+      msg += '   ⚠️ *Overdue tasks ('+regularOD.length+')*\n';
+      regularOD.forEach(t => {
+        const pe = DB.people.find(p=>p.id===t.assignedTo);
+        msg += '   • '+t.title+' — was due '+fd(t.dueDate);
+        if (pe) msg += ' · '+pe.name;
+        msg += '\n';
+      });
+      msg += '\n';
+    }
 
-  msg += '\n━━━━━━━━━━━━━━━━━━';
-  const totalOD = Object.values(overdueByProj).reduce((s,{tasks})=>s+tasks.length,0);
-  if (totalOD) msg += '\n📊 *'+totalOD+' overdue task'+(totalOD!==1?'s':'')+' require immediate action*';
+    // Blocked
+    if (blocked.length) {
+      msg += '   🔴 *Blocked tasks ('+blocked.length+')*\n';
+      blocked.forEach(t => {
+        const pe   = DB.people.find(p=>p.id===t.assignedTo);
+        const deps = (t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');
+        msg += '   • '+t.title;
+        if (pe) msg += ' · '+pe.name;
+        msg += '\n';
+        if (deps.length) msg += '     ⛓ Blocked by: '+deps.map(d=>d.title).join(', ')+'\n';
+        if (t.notes) msg += '     Note: '+t.notes+'\n';
+      });
+      msg += '\n';
+    }
+
+    // Awaiting
+    if (awaiting.length) {
+      msg += '   ⏳ *Awaiting response ('+awaiting.length+')*\n';
+      awaiting.forEach(t => {
+        const pe = DB.people.find(p=>p.id===t.assignedTo);
+        msg += '   • '+t.title;
+        if (pe) msg += ' · '+pe.name;
+        if (t.dueDate) msg += ' · due '+fd(t.dueDate);
+        msg += '\n';
+      });
+      msg += '\n';
+    }
+
+    // Due this week (upcoming)
+    if (dueSoon.length) {
+      msg += '   📅 *Due this week ('+dueSoon.length+')*\n';
+      dueSoon.slice(0,5).forEach(t => {
+        const pe = DB.people.find(p=>p.id===t.assignedTo);
+        msg += '   • '+t.title+' — '+fd(t.dueDate);
+        if (pe) msg += ' · '+pe.name;
+        msg += '\n';
+      });
+      if (dueSoon.length>5) msg += '   … and '+(dueSoon.length-5)+' more\n';
+      msg += '\n';
+    }
+
+    // Unassigned tasks with due dates
+    if (unassigned.length) {
+      msg += '   👤 *Unassigned ('+unassigned.length+') — no one is responsible*\n';
+      unassigned.forEach(t => {
+        msg += '   • '+t.title+' — due '+fd(t.dueDate)+'\n';
+      });
+      msg += '\n';
+    }
+
+    // Milestones due this week
+    if (milsDue.length) {
+      msg += '   🏁 *Milestones due this week*\n';
+      milsDue.forEach(m => {
+        msg += '   • '+m.name+' — '+fd(m.deadline)+'\n';
+      });
+      msg += '\n';
+    }
+
+    // Buildings on hold / blocked
+    if (pbIssues.length) {
+      msg += '   🏢 *Buildings needing action*\n';
+      pbIssues.forEach(r => {
+        const statusLabel = BS[r.status]?.l||r.status;
+        msg += '   • '+r.b.name+(r.b.city?', '+r.b.city:'')+' — '+statusLabel+'\n';
+        if (r.remarks) msg += '     '+r.remarks+'\n';
+        if (r.targetCompletion) msg += '     Target: '+fd(r.targetCompletion)+'\n';
+      });
+      msg += '\n';
+    }
+
+    // Pending documents
+    if (pendingDocs.length||pbPendingDocs.length) {
+      msg += '   📎 *Documents pending*\n';
+      pendingDocs.forEach(d=>{msg+='   • '+d.name+(d.notes?' — '+d.notes:'')+'\n';});
+      pbPendingDocs.forEach(d=>{msg+='   • '+d.name+(d.bName?' ('+d.bName+')':'')+(d.notes?' — '+d.notes:'')+'\n';});
+      msg += '\n';
+    }
+
+    // Zero progress warning
+    if (zeroProgress) {
+      msg += '   ⭕ *No tasks completed yet on this project*\n\n';
+    }
+  });
+
+  msg += '━━━━━━━━━━━━━━━━━━━━━━━━\n';
+  msg += '📊 Summary: '+signals.length+' project'+(signals.length!==1?'s':'')+' need attention';
+  if (totalOverdue)  msg += ' · '+totalOverdue+' overdue';
+  if (totalBlocked)  msg += ' · '+totalBlocked+' blocked';
+  if (totalAwaiting) msg += ' · '+totalAwaiting+' awaiting';
+  msg += '\n\n_Sent by Taskora — Founder\'s Office_';
+
   return msg;
+}
+
+// ── Visual digest summary for the UI (not the WhatsApp message) ──────────────
+function digestSummaryHTML(person) {
+  const today    = tday();
+  const oneWeek  = new Date(); oneWeek.setDate(oneWeek.getDate()+7);
+  const weekStr  = oneWeek.toISOString().slice(0,10);
+  const threeDayStr = new Date(Date.now()-3*86400000).toISOString().slice(0,10);
+
+  const ownedProjs = DB.projects.filter(pr => pr.primaryOwnerId===person.id && pr.status!=='done');
+  let h = '';
+
+  ownedProjs.forEach(proj => {
+    const allT   = DB.tasks.filter(t => t.projectId===proj.id);
+    const pendT  = allT.filter(t => t.status!=='done');
+    const pct    = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
+
+    const overdue  = pendT.filter(t => isOD(t.dueDate,t.status));
+    const critOD   = overdue.filter(t => t.dueDate && t.dueDate < threeDayStr);
+    const blocked  = pendT.filter(t => t.status==='blocked');
+    const awaiting = pendT.filter(t => t.status==='awaiting');
+    const dueSoon  = pendT.filter(t => t.dueDate && t.dueDate>today && t.dueDate<=weekStr);
+    const unassigned = pendT.filter(t => !t.assignedTo && t.dueDate);
+    const milsDue  = DB.milestones.filter(m=>m.projectId===proj.id&&m.status!=='done'&&m.deadline&&m.deadline<=weekStr);
+    const pbIssues = DB.pb.filter(r=>r.projectId===proj.id&&(r.status==='blocked'||r.status==='on_hold'))
+                         .map(r=>({...r,b:DB.buildings.find(b=>b.id===r.buildingId)})).filter(r=>r.b);
+    const pendingDocs = DB.docs.filter(d=>d.entity_type==='project'&&d.entity_id===proj.id&&d.doc_status==='pending');
+
+    const totalFlags = overdue.length+blocked.length+awaiting.length+milsDue.length+
+                       pbIssues.length+unassigned.length+pendingDocs.length;
+    if (!totalFlags && proj.health==='on_track') return;
+
+    const healthCfg = {
+      on_track:    {c:'var(--grn)',  bg:'rgba(16,185,129,.08)',  bdr:'rgba(16,185,129,.2)',  l:'On Track'},
+      at_risk:     {c:'#f59e0b',    bg:'rgba(245,158,11,.08)',   bdr:'rgba(245,158,11,.2)',  l:'At Risk'},
+      delayed:     {c:'var(--rose)',bg:'rgba(244,63,94,.08)',    bdr:'rgba(244,63,94,.2)',   l:'Delayed'},
+      not_started: {c:'var(--txt3)',bg:'rgba(100,116,139,.08)',  bdr:'rgba(100,116,139,.2)', l:'Not Started'},
+    };
+    const hc = healthCfg[proj.health||'on_track'];
+
+    h += '<div style="background:'+hc.bg+';border:1px solid '+hc.bdr+';border-radius:10px;padding:12px 14px;margin-bottom:8px">';
+
+    // Project header row
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+    h += '<div style="width:8px;height:8px;border-radius:50%;background:'+proj.color+';flex-shrink:0"></div>';
+    h += '<div style="flex:1;font-size:13px;font-weight:700;color:var(--txt)">'+esc(proj.name)+'</div>';
+    h += '<span class="bd" style="background:'+hc.bg+';color:'+hc.c+';border:1px solid '+hc.bdr+'">'+hc.l+'</span>';
+    h += '<span style="font-size:11px;color:var(--txt3)">'+pct+'%</span>';
+    h += '</div>';
+
+    // Progress bar
+    h += '<div class="pw" style="margin-bottom:10px"><div class="pb" style="width:'+pct+'%;background:'+(pct===100?'var(--grn)':proj.color)+'"></div></div>';
+
+    // Flag chips
+    h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">';
+    if (critOD.length)    h += '<span class="bd" style="background:rgba(244,63,94,.2);color:var(--rose)">🚨 '+critOD.length+' critical</span>';
+    else if (overdue.length) h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">⚠ '+overdue.length+' overdue</span>';
+    if (blocked.length)   h += '<span class="bd" style="background:rgba(244,63,94,.1);color:var(--rose)">🔴 '+blocked.length+' blocked</span>';
+    if (awaiting.length)  h += '<span class="bd" style="background:rgba(168,85,247,.12);color:#c084fc">⏳ '+awaiting.length+' awaiting</span>';
+    if (dueSoon.length)   h += '<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">📅 '+dueSoon.length+' due soon</span>';
+    if (milsDue.length)   h += '<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">🏁 '+milsDue.length+' milestone'+(milsDue.length!==1?'s':'')+' due</span>';
+    if (pbIssues.length)  h += '<span class="bd" style="background:rgba(251,146,60,.12);color:#fb923c">🏢 '+pbIssues.length+' bldg issue'+(pbIssues.length!==1?'s':'')+' </span>';
+    if (unassigned.length)h += '<span class="bd" style="background:rgba(100,116,139,.12);color:var(--txt2)">👤 '+unassigned.length+' unassigned</span>';
+    if (pendingDocs.length) h += '<span class="bd" style="background:rgba(99,102,241,.1);color:var(--ind-l)">📎 '+pendingDocs.length+' doc'+(pendingDocs.length!==1?'s':'')+' pending</span>';
+    if (!proj.deadline)   h += '<span class="bd" style="background:rgba(100,116,139,.1);color:var(--txt3)">📅 No deadline set</span>';
+    h += '</div>';
+
+    // Inline task details
+    const showTasks = [...overdue, ...blocked, ...awaiting].slice(0,6);
+    if (showTasks.length) {
+      showTasks.forEach(t => {
+        const pe  = DB.people.find(p=>p.id===t.assignedTo);
+        const od  = isOD(t.dueDate,t.status);
+        const isBlk = t.status==='blocked';
+        const isAwt = t.status==='awaiting';
+        const rowColor = od?'rgba(244,63,94,.06)':isBlk?'rgba(244,63,94,.04)':'rgba(168,85,247,.04)';
+        const icon = od?'⚠':'';
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:'+rowColor+';border-radius:7px;margin-bottom:3px">';
+        if (icon) h += '<span style="font-size:11px;flex-shrink:0">'+icon+'</span>';
+        h += '<span style="flex:1;font-size:12px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(t.title)+'</span>';
+        if (t.dueDate) {
+          const dc = od?'var(--rose)':'var(--txt3)';
+          h += '<span style="font-size:11px;color:'+dc+';flex-shrink:0">'+(od?'⚠ ':'')+fd(t.dueDate)+'</span>';
+        }
+        if (pe) h += '<span style="flex-shrink:0">'+av(pe.name,pe.color,18)+'</span>';
+        h += '<span style="flex-shrink:0">'+bdg(t.status)+'</span>';
+        h += '</div>';
+      });
+      const remaining = overdue.length+blocked.length+awaiting.length - showTasks.length;
+      if (remaining > 0) h += '<div style="font-size:11px;color:var(--txt3);padding:3px 8px">+'+remaining+' more tasks needing attention</div>';
+    }
+
+    // Buildings
+    if (pbIssues.length) {
+      pbIssues.forEach(r => {
+        h += '<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(251,146,60,.06);border-radius:7px;margin-bottom:3px">';
+        h += '<span style="font-size:11px;flex-shrink:0">🏢</span>';
+        h += '<span style="flex:1;font-size:12px">'+esc(r.b.name)+(r.b.city?', '+esc(r.b.city):'')+'</span>';
+        h += bdg(r.status,BS);
+        if (r.remarks) h += '<span style="font-size:11px;color:var(--txt3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.remarks)+'</span>';
+        h += '</div>';
+      });
+    }
+
+    h += '</div>';
+  });
+
+  return h || '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:10px">All projects on track — nothing to flag</div>';
 }
 
 async function svDE(pid) {
@@ -2274,58 +2551,114 @@ async function rgDig(pid) {
   if (ind) { ind.textContent='Regenerated'; ind.style.color='var(--ind-l)'; setTimeout(()=>{ if(ind) ind.textContent=''; },1500); }
 }
 async function rgAll() {
-  if (!confirm('Discard ALL edits and regenerate all messages?')) return;
   DB.de = {};
   await SB.from('digest_edits').delete().eq('user_id',CHAIRMAN_UID||U.id);
   rDig();
 }
 
 function rDig() {
+  const el = document.getElementById('tab-digest');
+  if (!el) return;
+
+  // All people who own at least one active project
   const owners = DB.people.filter(p => DB.projects.some(pr => pr.primaryOwnerId===p.id && pr.status!=='done'));
-  const dig    = owners.map(p => {
-    const auto = buildMsg(p);
-    const msg  = DB.de[p.id] !== undefined ? DB.de[p.id] : auto;
-    return {person:p, msg, auto, hasEdit:DB.de[p.id]!==undefined};
-  }).filter(x => x.auto);
 
-  let h = '<div class="ph"><div><div class="pt">Daily Digest</div><div class="ps">Overdue &amp; at-risk · '+nowFull()+'</div></div><button class="btn btn-g btn-sm" onclick="rgAll()">↺ Regen all</button></div>';
-  h += '<div style="font-size:12px;color:var(--txt2);margin-bottom:20px;padding:10px 14px;background:var(--glass);border-radius:10px;border:1px solid var(--bdr)">Sent to project owners. Only <strong style="color:var(--rose)">overdue tasks</strong> and <strong style="color:var(--amb)">at-risk projects</strong> are included — nothing else.</div>';
+  // Global summary counts across all owners
+  const today   = tday();
+  const allOwnerProjIds = new Set(DB.projects.filter(pr=>pr.status!=='done').map(p=>p.id));
+  const totalOD     = DB.tasks.filter(t=>allOwnerProjIds.has(t.projectId)&&isOD(t.dueDate,t.status)).length;
+  const totalBlocked= DB.tasks.filter(t=>allOwnerProjIds.has(t.projectId)&&t.status==='blocked').length;
+  const totalAwait  = DB.tasks.filter(t=>allOwnerProjIds.has(t.projectId)&&t.status==='awaiting').length;
+  const totalProjFlagged = DB.projects.filter(p=>p.status!=='done'&&['at_risk','delayed'].includes(p.health||'')).length;
 
-  if (!dig.length) {
-    h += '<div class="es"><span class="em">🎉</span><div class="et">All clear!</div><div class="ed">No overdue tasks or at-risk projects today.</div></div>';
-    document.getElementById('tab-digest').innerHTML = h;
+  let h = '<div class="ph"><div><div class="pt">Daily Digest</div><div class="ps">Full attention report · '+nowFull()+'</div></div>';
+  h += '<button class="btn btn-g btn-sm" onclick="rgAll()">↺ Regenerate all</button></div>';
+
+  // Global summary bar
+  h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">';
+  h += '<div style="grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap">';
+  if (totalOD)         h += '<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:var(--rose)">'+totalOD+'</div><div style="font-size:10px;color:var(--rose);margin-top:1px">Overdue tasks</div></div>';
+  if (totalBlocked)    h += '<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(244,63,94,.07);border:1px solid rgba(244,63,94,.15);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f87171">'+totalBlocked+'</div><div style="font-size:10px;color:#f87171;margin-top:1px">Blocked</div></div>';
+  if (totalAwait)      h += '<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#c084fc">'+totalAwait+'</div><div style="font-size:10px;color:#c084fc;margin-top:1px">Awaiting</div></div>';
+  if (totalProjFlagged)h += '<div style="flex:1;text-align:center;padding:9px 8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.18);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f59e0b">'+totalProjFlagged+'</div><div style="font-size:10px;color:#f59e0b;margin-top:1px">At risk / delayed</div></div>';
+  if (!totalOD && !totalBlocked && !totalAwait && !totalProjFlagged) {
+    h += '<div style="flex:1;padding:10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;text-align:center;font-size:13px;color:var(--grn)">🎉 All projects on track — nothing critical today</div>';
+  }
+  h += '</div></div>';
+
+  if (!owners.length) {
+    h += '<div class="es"><span class="em">👥</span><div class="et">No project owners yet</div><div class="ed">Assign primary owners to projects to see their digest here.</div></div>';
+    el.innerHTML = h;
     return;
   }
 
-  dig.forEach(({person,msg,auto,hasEdit}) => {
+  owners.forEach(person => {
     const ownedProjs = DB.projects.filter(pr => pr.primaryOwnerId===person.id && pr.status!=='done');
-    const totalOD    = DB.tasks.filter(t => ownedProjs.some(pr=>pr.id===t.projectId) && isOD(t.dueDate,t.status)).length;
-    const atRisk     = ownedProjs.filter(pr => pr.health==='at_risk'||pr.health==='delayed').length;
-    const isEd       = hasEdit && msg!==auto;
+    const auto    = buildMsg(person);
+    const msg     = DB.de[person.id] !== undefined ? DB.de[person.id] : (auto||'');
+    const hasEdit = DB.de[person.id] !== undefined && msg !== auto;
 
-    h += '<div class="gc" style="margin-bottom:16px">';
+    // Count this person's flags
+    const pProjIds = new Set(ownedProjs.map(p=>p.id));
+    const pOD      = DB.tasks.filter(t=>pProjIds.has(t.projectId)&&isOD(t.dueDate,t.status)).length;
+    const pBlk     = DB.tasks.filter(t=>pProjIds.has(t.projectId)&&t.status==='blocked').length;
+    const pAwt     = DB.tasks.filter(t=>pProjIds.has(t.projectId)&&t.status==='awaiting').length;
+    const pAR      = ownedProjs.filter(p=>['at_risk','delayed'].includes(p.health||'')).length;
+    const hasIssues= pOD||pBlk||pAwt||pAR;
+
+    h += '<div class="gc" style="margin-bottom:20px;border-color:'+(hasIssues?'rgba(244,63,94,.2)':'var(--bdr)')+'">';
+
+    // Person header
     h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">';
     h += av(person.name,person.color,46);
-    h += '<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(person.name)+'</div><div style="font-size:12px;color:var(--txt2)">'+esc(person.role||'Project Owner')+'</div>';
-    h += '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">';
-    if (totalOD) h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">🔴 '+totalOD+' overdue</span>';
-    if (atRisk)  h += '<span class="bd" style="background:rgba(245,158,11,.14);color:#f59e0b">🟡 '+atRisk+' at risk</span>';
-    if (isEd)    h += '<span class="bd" style="background:rgba(245,158,11,.12);color:#fbbf24">✎ Edited</span>';
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:15px;font-weight:700">'+esc(person.name)+'</div>';
+    h += '<div style="font-size:12px;color:var(--txt2)">'+esc(person.role||'Project Owner')+'</div>';
+    h += '<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">';
+    if (pOD)  h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">⚠ '+pOD+' overdue</span>';
+    if (pBlk) h += '<span class="bd" style="background:rgba(244,63,94,.1);color:var(--rose)">🔴 '+pBlk+' blocked</span>';
+    if (pAwt) h += '<span class="bd" style="background:rgba(168,85,247,.12);color:#c084fc">⏳ '+pAwt+' awaiting</span>';
+    if (pAR)  h += '<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">🟡 '+pAR+' at risk</span>';
+    if (!hasIssues) h += '<span class="bd" style="background:rgba(16,185,129,.12);color:var(--grn)">✓ All clear</span>';
+    if (hasEdit) h += '<span class="bd" style="background:rgba(245,158,11,.1);color:#fbbf24">✎ Edited</span>';
     h += '</div></div>';
     h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">';
     h += '<button onclick="rgDig(\''+person.id+'\')" class="mb" style="font-size:11px">↺ Reset</button>';
     h += '<span id="di-'+person.id+'" style="font-size:11px;color:var(--txt3);min-height:14px"></span>';
     h += '</div></div>';
-    h += '<textarea id="de-'+person.id+'" class="dta" oninput="svDE(\''+person.id+'\')">'+esc(msg)+'</textarea>';
-    h += '<div style="display:flex;gap:10px;margin-top:10px">';
-    h += '<button class="cp-b" id="cp-'+person.id+'" onclick="cpM(\''+person.id+'\')">📋 Copy</button>';
-    h += '<button class="wa-b" onclick="oWA(\''+person.id+'\')">';
-    h += '<svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>';
-    h += 'WhatsApp '+esc(person.name.split(' ')[0])+'</button>';
-    h += '</div></div>';
+
+    // ── Visual project breakdown ──
+    h += '<div style="margin-bottom:14px">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Project Status</div>';
+    h += digestSummaryHTML(person);
+    h += '</div>';
+
+    // ── WhatsApp message textarea ──
+    if (auto) {
+      h += '<div style="border-top:1px solid var(--bdr);padding-top:12px;margin-top:4px">';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:6px;display:flex;align-items:center;gap:6px">';
+      h += '<span>📤 WhatsApp message</span>';
+      h += '<span style="font-size:10px;color:var(--txt3);font-weight:400">— edit before sending</span>';
+      h += '</div>';
+      h += '<textarea id="de-'+person.id+'" class="dta" oninput="svDE(\''+person.id+'\')" style="min-height:160px">'+esc(msg)+'</textarea>';
+      h += '<div style="display:flex;gap:8px;margin-top:8px">';
+      h += '<button class="cp-b" id="cp-'+person.id+'" onclick="cpM(\''+person.id+'\')">📋 Copy</button>';
+      if (person.phone) {
+        h += '<button class="wa-b" onclick="oWA(\''+person.id+'\')">';
+        h += '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>';
+        h += 'WhatsApp '+esc(person.name.split(' ')[0])+'</button>';
+      } else {
+        h += '<div style="font-size:11px;color:var(--txt3);padding:4px 0;align-self:center">Add WhatsApp number in People to enable direct send</div>';
+      }
+      h += '</div></div>';
+    } else {
+      h += '<div style="text-align:center;font-size:12px;color:var(--grn);padding:10px;border-top:1px solid var(--bdr);margin-top:4px">✓ Nothing to flag for '+esc(person.name.split(' ')[0])+' today</div>';
+    }
+
+    h += '</div>';
   });
 
-  document.getElementById('tab-digest').innerHTML = h;
+  el.innerHTML = h;
 }
 
 function cpM(pid) {
