@@ -474,6 +474,11 @@ const SB = supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsdmlqaXFyZ2RkdnBhcnNucG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3ODc4NTAsImV4cCI6MjA5MDM2Mzg1MH0.J9wB4a384TRLfISIQC35pn5no-Pp52iZoB8fBiEExj8'
 );
 
+/* ── PLATFORM ── */
+const PLATFORM_OWNER_EMAIL = 'engineeradityasingh@gmail.com';
+const PLATFORM_FN_URL = 'https://blvijiqrgddvparsnpnh.supabase.co/functions/v1/platform-admin';
+let IS_PLATFORM_OWNER = false;
+
 /* ── THEME ── */
 (function() {
   // Apply saved theme immediately (before render) to prevent flash
@@ -676,6 +681,7 @@ async function showApp() {
   document.getElementById('sb-av').textContent = email.slice(0,2).toUpperCase();
   // Sync theme toggle button state
   updateThemeBtn(document.documentElement.classList.contains('dark'));
+  IS_PLATFORM_OWNER = (U.email === PLATFORM_OWNER_EMAIL);
 
   // ── ROLE DETECTION ──────────────────────────────────────────────────────────
   // Check if this user is a team member in someone else's workspace
@@ -748,7 +754,8 @@ function buildNav() {
       (isSuper ? '<button class="sb-b" data-tab="digest"><span class="ic">📤</span> Digest</button>' : '')+
       '<button class="sb-b" data-tab="notifications" style="position:relative"><span class="ic">🔔</span> Notifications'+nb+'</button>'+
       (isSuper ? '<button class="sb-b" data-tab="analytics"><span class="ic">📊</span> Analytics</button>' : '')+
-      (isSuper ? '<button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>' : '');
+      (isSuper ? '<button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>' : '')+
+      (IS_PLATFORM_OWNER ? '<div class="sb-div"></div><button class="sb-b" data-tab="platform" style="color:var(--ind-l);font-weight:600"><span class="ic">⚡</span> Platform Admin</button>' : '');
   }
   const bn = document.getElementById('bn');
   if (bn) {
@@ -760,7 +767,7 @@ function buildNav() {
       '<button class="nb" data-tab="notifications" style="position:relative"><span class="ic">🔔</span><span class="lb">Alerts</span>'+nb+'</button>'+
       '<button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>';
   }
-  ['roles','notifications','analytics','portfolio'].forEach(id => {
+  ['roles','notifications','analytics','portfolio','platform'].forEach(id => {
     if (!document.getElementById('tab-'+id)) {
       const d = document.createElement('div'); d.id='tab-'+id; d.className='page';
       document.getElementById('content').appendChild(d);
@@ -792,6 +799,7 @@ function renderTab(id) {
   else if (id==='roles')         rRoles();
   else if (id==='notifications') rNotifications();
   else if (id==='analytics')     rAnalytics();
+  else if (id==='platform')       rPlatformAdmin();
 }
 
 
@@ -3704,6 +3712,282 @@ function oPrFWithProgram(programId) {
   }, 50);
 }
 
+
+
+
+/* ══════════════════════════════════════════════════════
+   PLATFORM ADMIN CONSOLE
+   Only visible to: engineeradityasingh@gmail.com
+   Powered by: platform-admin Edge Function (service role)
+══════════════════════════════════════════════════════ */
+
+let _platData = null;
+let _platTab  = 'overview';
+let _platLoading = false;
+
+async function callPlatformAPI(body) {
+  const { data:{ session } } = await SB.auth.getSession();
+  const token = session?.access_token;
+  const res = await fetch(PLATFORM_FN_URL, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+async function rPlatformAdmin() {
+  const el = document.getElementById('tab-platform');
+  if (!el) return;
+  if (!IS_PLATFORM_OWNER) {
+    el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Access denied</div></div>';
+    return;
+  }
+  el.innerHTML = _buildPlatShell();
+  if (!_platData && !_platLoading) {
+    _platLoading = true;
+    el.querySelector('#plat-body').innerHTML = '<div style="text-align:center;padding:48px;color:var(--txt3)"><div class="spin" style="margin:0 auto 12px"></div>Loading platform data…</div>';
+    try { _platData = await callPlatformAPI({ action: 'overview' }); } catch(e) {
+      if (el.querySelector('#plat-body')) el.querySelector('#plat-body').innerHTML = '<div class="es"><span class="em">⚠️</span><div class="et">Load failed</div><div class="ed">'+String(e)+'</div></div>';
+      _platLoading = false; return;
+    }
+    _platLoading = false;
+    el.innerHTML = _buildPlatShell();
+  }
+  if (!_platData) return;
+  const body = el.querySelector('#plat-body');
+  if (body) body.innerHTML = _platTab==='overview' ? _buildPlatOverview() : _platTab==='tenants' ? _buildPlatTenants() : _buildPlatPipeline();
+}
+
+function _buildPlatShell() {
+  const tabs = [{id:'overview',l:'Overview'},{id:'tenants',l:'Tenants'},{id:'pipeline',l:'Sales Pipeline'}];
+  let h = '<div class="ph"><div><div class="pt" style="display:flex;align-items:center;gap:8px"><span>⚡</span> Platform Admin</div>';
+  h += '<div class="ps">Taskora · All tenants · All data</div></div>';
+  h += '<button class="btn btn-g btn-sm" onclick="_platData=null;rPlatformAdmin()">↺ Refresh</button></div>';
+  h += '<div class="pls" style="margin-bottom:20px">';
+  tabs.forEach(t=>{ h+='<button class="pl'+(_platTab===t.id?' active':'')+'" onclick="_platTab=\''+t.id+'\';rPlatformAdmin()">'+t.l+'</button>'; });
+  h += '</div><div id="plat-body"></div>';
+  return h;
+}
+
+function _buildPlatOverview() {
+  if (!_platData) return '';
+  const { kpis, tenants, pipelineByStage, pipelineTCV } = _platData;
+  const planColors = {trial:'#D97706',starter:'#0284C7',professional:'#059669',enterprise:'#9333EA',custom:'#1D4ED8',demo:'#475569'};
+  let h = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">';
+  const kpiCards = [
+    {n:kpis.totalTenants,  l:'Total workspaces', c:'var(--ind-l)'},
+    {n:kpis.activeTenants, l:'Active (paying)',   c:'var(--grn)'},
+    {n:kpis.trialTenants,  l:'On trial',          c:'var(--amb)'},
+    {n:'$'+kpis.mrr.toLocaleString(), l:'MRR (USD)', c:'var(--grn)', isStr:true},
+    {n:kpis.totalUsers,    l:'Total users',        c:'var(--teal)'},
+    {n:kpis.totalProjects, l:'Projects created',   c:'var(--txt)'},
+    {n:kpis.churnRiskCount,l:'Churn risk',         c:kpis.churnRiskCount>0?'var(--rose)':'var(--grn)'},
+    {n:kpis.churned,       l:'Churned',            c:kpis.churned>0?'var(--rose)':'var(--txt3)'},
+  ];
+  kpiCards.forEach(k=>{
+    h+='<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:14px">';
+    h+='<div style="font-size:'+(k.isStr?'20px':'26px')+';font-weight:700;color:'+k.c+'">'+k.n+'</div>';
+    h+='<div style="font-size:11px;color:var(--txt3);margin-top:4px">'+k.l+'</div></div>';
+  });
+  h += '</div>';
+  const stages=['lead','demo_scheduled','trial','negotiation','won','lost'];
+  const stageL={lead:'Lead',demo_scheduled:'Demo',trial:'Trial',negotiation:'Negotiating',won:'Won',lost:'Lost'};
+  const stageC={lead:'#475569',demo_scheduled:'#0284C7',trial:'#D97706',negotiation:'#9333EA',won:'#059669',lost:'#DC2626'};
+  h+='<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:20px">';
+  h+='<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:600">Sales Pipeline</div><div style="font-size:12px;color:var(--txt3)">TCV: <strong>$'+pipelineTCV.toLocaleString()+'</strong></div></div>';
+  h+='<div style="display:flex;gap:6px">';
+  stages.forEach(s=>{
+    h+='<div style="flex:1;text-align:center;padding:8px 4px;background:var(--glass2);border-radius:var(--r-sm);border-top:3px solid '+stageC[s]+'">';
+    h+='<div style="font-size:18px;font-weight:700;color:'+stageC[s]+'">'+(pipelineByStage[s]||0)+'</div>';
+    h+='<div style="font-size:10px;color:var(--txt3)">'+stageL[s]+'</div></div>';
+  });
+  h+='</div></div>';
+  const recent=[...(tenants||[])].sort((a,b)=>new Date(b.stats.lastActive).getTime()-new Date(a.stats.lastActive).getTime()).slice(0,8);
+  h+='<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Recently active</div>';
+  h+='<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden">';
+  recent.forEach((t,i)=>{
+    const meta=t.meta; const plan=meta?.plan||'trial'; const pc=planColors[plan]||'#475569'; const risk=t.stats.churnRisk;
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:'+(i<recent.length-1?'1px solid var(--bdr)':'none')+';background:'+(risk?'rgba(220,38,38,.04)':'transparent')+'">';
+    h+='<div style="width:30px;height:30px;border-radius:6px;background:'+pc+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">'+(meta?.company_name||t.workspace.org_name||'?').slice(0,2).toUpperCase()+'</div>';
+    h+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+esc(meta?.company_name||t.workspace.org_name||'Unnamed')+'</div>';
+    h+='<div style="font-size:11px;color:var(--txt3)">'+t.stats.users+' users · '+t.stats.projects+' projects · '+t.stats.tasks+' tasks</div></div>';
+    h+='<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">';
+    h+='<span class="bd" style="background:'+pc+'18;color:'+pc+';border-color:'+pc+'33">'+plan+'</span>';
+    h+='<span style="font-size:10px;color:'+(risk?'var(--rose)':'var(--txt3)')+'">'+t.stats.daysSinceActive+(risk?'d ⚠ risk':'d ago')+'</span></div>';
+    h+='<button onclick="openTenantDetail(\''+t.workspace.chairman_user_id+'\')" class="mb" style="font-size:11px;flex-shrink:0">View →</button></div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+function _buildPlatTenants() {
+  if (!_platData) return '';
+  const { tenants } = _platData;
+  const planColors={trial:'#D97706',starter:'#0284C7',professional:'#059669',enterprise:'#9333EA',custom:'#1D4ED8',demo:'#475569'};
+  const statusColors={trial:'#D97706',active:'#059669',past_due:'#DC2626',suspended:'#DC2626',churned:'#475569',demo:'#0284C7'};
+  let h='<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn btn-p btn-sm" onclick="oNewTenant()">+ Add tenant</button></div>';
+  h+='<div class="tw"><table><thead><tr>';
+  ['Company','Plan','Status','Users','Projects','Tasks','Last Active','MRR','Actions'].forEach(c=>{h+='<th>'+c+'</th>';});
+  h+='</tr></thead><tbody>';
+  tenants.forEach(t=>{
+    const meta=t.meta; const plan=meta?.plan||'trial'; const status=meta?.billing_status||'trial'; const risk=t.stats.churnRisk;
+    h+='<tr style="background:'+(risk?'rgba(220,38,38,.03)':'transparent')+'">';
+    h+='<td><div style="font-weight:600">'+esc(meta?.company_name||t.workspace.org_name||'—')+'</div>';
+    h+='<div style="font-size:11px;color:var(--txt3)">'+esc(meta?.contact_email||'')+'</div></td>';
+    h+='<td><span class="bd" style="background:'+planColors[plan]+'18;color:'+planColors[plan]+';border-color:'+planColors[plan]+'33">'+plan+'</span></td>';
+    h+='<td><span class="bd" style="background:'+statusColors[status]+'18;color:'+statusColors[status]+';border-color:'+statusColors[status]+'33">'+status+'</span></td>';
+    h+='<td style="text-align:center">'+t.stats.users+'</td>';
+    h+='<td style="text-align:center">'+t.stats.projects+'</td>';
+    h+='<td style="text-align:center">'+t.stats.tasks+'</td>';
+    h+='<td style="color:'+(risk?'var(--rose)':'var(--txt2)')+'">'+t.stats.daysSinceActive+'d'+(risk?' ⚠':'')+'</td>';
+    h+='<td>'+(meta?.mrr_usd?'$'+meta.mrr_usd:'—')+'</td>';
+    h+='<td><div style="display:flex;gap:4px"><button class="mb" onclick="openTenantDetail(\''+t.workspace.chairman_user_id+'\')">View</button><button class="mb" onclick="editTenantMeta(\''+t.workspace.chairman_user_id+'\')">✎</button></div></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function _buildPlatPipeline() {
+  if (!_platData) return '';
+  const { pipeline } = _platData;
+  const STAGES=['lead','demo_scheduled','trial','negotiation','won','lost'];
+  const SL={lead:'Lead',demo_scheduled:'Demo Scheduled',trial:'On Trial',negotiation:'Negotiating',won:'Won ✓',lost:'Lost ✕'};
+  const SC={lead:'#475569',demo_scheduled:'#0284C7',trial:'#D97706',negotiation:'#9333EA',won:'#059669',lost:'#DC2626'};
+  let h='<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn btn-p btn-sm" onclick="oDealF()">+ New deal</button></div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
+  STAGES.forEach(stage=>{
+    const deals=(pipeline||[]).filter(d=>d.stage===stage);
+    const cv=deals.reduce((s,d)=>s+(d.deal_value_usd||0),0);
+    h+='<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:10px;min-height:100px">';
+    h+='<div style="display:flex;justify-content:space-between;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bdr)">';
+    h+='<div style="font-size:12px;font-weight:600;color:'+SC[stage]+'">'+SL[stage]+'</div>';
+    h+='<div style="font-size:11px;color:var(--txt3)">'+(cv?'$'+cv.toLocaleString():'')+'</div></div>';
+    if (!deals.length) h+='<div style="font-size:11px;color:var(--txt3);text-align:center;padding:10px">Empty</div>';
+    deals.forEach(d=>{
+      h+='<div style="background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:8px;margin-bottom:5px;cursor:pointer" onclick="oDealF(\''+d.id+'\')">'; 
+      h+='<div style="font-size:12px;font-weight:600">'+esc(d.company_name)+'</div>';
+      if (d.contact_name) h+='<div style="font-size:11px;color:var(--txt3)">'+esc(d.contact_name)+'</div>';
+      if (d.deal_value_usd) h+='<div style="font-size:12px;font-weight:600;color:'+SC[stage]+';margin-top:3px">$'+d.deal_value_usd.toLocaleString()+'</div>';
+      if (d.next_action_date) h+='<div style="font-size:10px;color:var(--txt3)">'+fd(d.next_action_date)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+async function openTenantDetail(chairmanId) {
+  OS('Loading…','<div style="text-align:center;padding:32px"><div class="spin" style="margin:0 auto"></div></div>');
+  try {
+    const detail=await callPlatformAPI({action:'tenant_detail',chairman_user_id:chairmanId});
+    const tenant=(_platData?.tenants||[]).find(t=>t.workspace.chairman_user_id===chairmanId);
+    const meta=tenant?.meta; const stats=tenant?.stats;
+    const planColors={trial:'#D97706',starter:'#0284C7',professional:'#059669',enterprise:'#9333EA'};
+    const plan=meta?.plan||'trial';
+    let h='<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bdr);margin-bottom:14px">';
+    h+='<div style="width:42px;height:42px;border-radius:8px;background:'+(planColors[plan]||'#475569')+';display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">'+(meta?.company_name||'?').slice(0,2).toUpperCase()+'</div>';
+    h+='<div><div style="font-size:15px;font-weight:700">'+esc(meta?.company_name||'Unnamed')+'</div>';
+    h+='<div style="font-size:12px;color:var(--txt3)">'+esc(meta?.contact_email||'')+'</div></div>';
+    h+='<span class="bd" style="margin-left:auto;background:'+(planColors[plan]||'#475569')+'18;color:'+(planColors[plan]||'#475569')+'">'+plan+'</span></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
+    [['Users',stats?.users||0],['Projects',detail.projects?.length||0],['Tasks',detail.tasks?.length||0],['Done',detail.tasks?.filter(t=>t.status==='done').length||0],['Buildings',detail.buildings||0],['Team',detail.people?.length||0]].forEach(([l,n])=>{
+      h+='<div style="background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:var(--ind-l)">'+n+'</div><div style="font-size:11px;color:var(--txt3)">'+l+'</div></div>';
+    });
+    h+='</div>';
+    if (detail.activity?.length) {
+      h+='<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Recent activity</div>';
+      h+='<div style="border:1px solid var(--bdr);border-radius:var(--r-sm);max-height:160px;overflow-y:auto">';
+      detail.activity.slice(0,8).forEach((a,i)=>{
+        h+='<div style="padding:6px 12px;border-bottom:'+(i<7?'1px solid var(--bdr)':'none')+';font-size:12px;display:flex;justify-content:space-between">';
+        h+='<span><strong>'+esc(a.actor_name||'—')+'</strong> '+a.action+' '+a.entity_type+'</span>';
+        h+='<span style="color:var(--txt3)">'+timeAgo(a.created_at)+'</span></div>';
+      });
+      h+='</div>';
+    }
+    if (meta?.notes) h+='<div style="margin-top:12px;padding:10px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr);font-size:12px;color:var(--txt2)">📝 '+esc(meta.notes)+'</div>';
+    h+='<div class="br" style="margin-top:14px"><button class="btn btn-g" onclick="CS()">Close</button><button class="btn btn-p" onclick="CS();editTenantMeta(\''+chairmanId+'\')">Edit tenant</button></div>';
+    document.getElementById('sh-ti').textContent=meta?.company_name||'Tenant detail';
+    document.getElementById('sh-bd').innerHTML=h;
+    document.getElementById('sh').classList.add('wide');
+  } catch(e) {
+    document.getElementById('sh-bd').innerHTML='<div class="es"><span class="em">⚠️</span><div class="et">'+String(e)+'</div></div>';
+  }
+}
+
+function editTenantMeta(chairmanId) {
+  const tenant=(_platData?.tenants||[]).find(t=>t.workspace.chairman_user_id===chairmanId);
+  const meta=tenant?.meta||{};
+  const plans=['trial','starter','professional','enterprise','custom','demo'];
+  const statuses=['trial','active','past_due','suspended','churned','demo'];
+  let h='<div class="fg"><label class="fl">Company name</label><input id="tm-cn" class="gi" value="'+esc(meta.company_name||tenant?.workspace?.org_name||'')+'"></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">Contact email</label><input id="tm-ce" class="gi" type="email" value="'+esc(meta.contact_email||'')+'"></div>';
+  h+='<div class="fg"><label class="fl">Contact name</label><input id="tm-cn2" class="gi" value="'+esc(meta.contact_name||'')+'"></div></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">Plan</label><select id="tm-plan" class="gi">';
+  plans.forEach(p=>{h+='<option value="'+p+'"'+(p===meta.plan?' selected':'')+'>'+p+'</option>';});
+  h+='</select></div><div class="fg"><label class="fl">Status</label><select id="tm-st" class="gi">';
+  statuses.forEach(s=>{h+='<option value="'+s+'"'+(s===meta.billing_status?' selected':'')+'>'+s+'</option>';});
+  h+='</select></div></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">MRR (USD/mo)</label><input id="tm-mrr" class="gi" type="number" value="'+(meta.mrr_usd||0)+'"></div>';
+  h+='<div class="fg"><label class="fl">Seats limit</label><input id="tm-seats" class="gi" type="number" value="'+(meta.seats_limit||5)+'"></div></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">Industry</label><input id="tm-ind" class="gi" value="'+esc(meta.industry||'')+'"></div>';
+  h+='<div class="fg"><label class="fl">Source</label><select id="tm-src" class="gi"><option value="">—</option>';
+  ['organic','referral','outbound','demo','event','social'].forEach(s=>{h+='<option value="'+s+'"'+(s===meta.source?' selected':'')+'>'+s+'</option>';});
+  h+='</select></div></div>';
+  h+='<div class="fg"><label class="fl">Internal notes</label><textarea id="tm-notes" class="gi">'+esc(meta.notes||'')+'</textarea></div>';
+  h+='<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svTenantMeta(\''+chairmanId+'\')">Save</button></div>';
+  OS('Edit: '+(meta.company_name||'tenant'),h);
+}
+
+async function svTenantMeta(chairmanId) {
+  const updates={company_name:val('tm-cn').trim(),contact_email:val('tm-ce').trim(),contact_name:val('tm-cn2').trim(),plan:val('tm-plan'),billing_status:val('tm-st'),mrr_usd:parseFloat(val('tm-mrr'))||0,seats_limit:parseInt(val('tm-seats'))||5,industry:val('tm-ind').trim(),source:val('tm-src'),notes:val('tm-notes').trim()};
+  const res=await callPlatformAPI({action:'update_tenant',chairman_user_id:chairmanId,...updates});
+  if (res.success) {
+    if (_platData) { const t=_platData.tenants.find(t=>t.workspace.chairman_user_id===chairmanId); if (t) t.meta={...(t.meta||{}),...updates}; }
+    CS(); showToast('Tenant updated ✓','ok'); rPlatformAdmin();
+  } else { showToast('Error: '+(res.error||'unknown'),'err'); }
+}
+
+function oNewTenant() { editTenantMeta('__new__'); }
+
+async function oDealF(dealId) {
+  const deal=dealId?(_platData?.pipeline||[]).find(d=>d.id===dealId):null;
+  const stages=['lead','demo_scheduled','trial','negotiation','won','lost'];
+  const SL={lead:'Lead',demo_scheduled:'Demo Scheduled',trial:'On Trial',negotiation:'Negotiating',won:'Won',lost:'Lost'};
+  let h='<div class="fg"><label class="fl">Company</label><input id="df-cn" class="gi" value="'+esc(deal?.company_name||'')+'"></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">Contact name</label><input id="df-ct" class="gi" value="'+esc(deal?.contact_name||'')+'"></div>';
+  h+='<div class="fg"><label class="fl">Email</label><input id="df-em" class="gi" type="email" value="'+esc(deal?.contact_email||'')+'"></div></div>';
+  h+='<div class="fr"><div class="fg"><label class="fl">Stage</label><select id="df-st" class="gi">';
+  stages.forEach(s=>{h+='<option value="'+s+'"'+(s===(deal?.stage||'lead')?' selected':'')+'>'+SL[s]+'</option>';});
+  h+='</select></div><div class="fg"><label class="fl">Deal value (USD/yr)</label><input id="df-val" class="gi" type="number" value="'+(deal?.deal_value_usd||'')+'"></div></div>';
+  h+='<div class="fg"><label class="fl">Next action</label><input id="df-na" class="gi" value="'+esc(deal?.next_action||'')+'"></div>';
+  h+='<div class="fg"><label class="fl">Next action date</label><input id="df-nd" class="gi" type="date" value="'+(deal?.next_action_date||'')+'"></div>';
+  h+='<div class="fg"><label class="fl">Notes</label><textarea id="df-notes" class="gi">'+esc(deal?.notes||'')+'</textarea></div>';
+  h+='<div class="br">';
+  if (dealId) h+='<button class="btn btn-g" onclick="deleteDeal(\''+dealId+'\')">Delete</button>';
+  h+='<button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svDeal(\''+( dealId||'')+'\')">Save</button></div>';
+  OS(deal?'Edit: '+deal.company_name:'New deal',h);
+}
+
+async function svDeal(id) {
+  const deal={company_name:val('df-cn').trim(),contact_name:val('df-ct').trim(),contact_email:val('df-em').trim(),stage:val('df-st'),deal_value_usd:parseFloat(val('df-val'))||0,next_action:val('df-na').trim(),next_action_date:val('df-nd')||null,notes:val('df-notes').trim()};
+  if (!deal.company_name) { showToast('Company required','err'); return; }
+  const res=await callPlatformAPI({action:'upsert_deal',deal:{id:id||undefined,...deal}});
+  if (res.data) {
+    if (!_platData) _platData={pipeline:[]};
+    if (id) { _platData.pipeline=(_platData.pipeline||[]).map(d=>d.id===id?res.data:d); } else { (_platData.pipeline=_platData.pipeline||[]).push(res.data); }
+    CS(); showToast('Deal saved ✓','ok'); _platTab='pipeline'; rPlatformAdmin();
+  } else { showToast('Error: '+(res.error||'unknown'),'err'); }
+}
+
+async function deleteDeal(id) {
+  if (!confirm('Delete this deal?')) return;
+  await callPlatformAPI({action:'delete_deal',id});
+  if (_platData) _platData.pipeline=(_platData.pipeline||[]).filter(d=>d.id!==id);
+  CS(); showToast('Deal deleted','ok'); rPlatformAdmin();
+}
 
 function showToast(msg, type) {
   // Remove any existing toast
