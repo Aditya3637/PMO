@@ -216,11 +216,12 @@ html.dark .so-b:hover{background:rgba(220,38,38,.1);border-color:rgba(220,38,38,
 .page.active{display:block}
 
 /* ── BOTTOM NAV (mobile) ────────────────────────────── */
-#bn{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--glass);border-top:1px solid var(--bdr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
-.nb{flex:1;padding:9px 4px 8px;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--txt3);cursor:pointer;transition:color .15s;position:relative}
+#bn{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--glass);border-top:1px solid var(--bdr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#bn::-webkit-scrollbar{display:none}
+.nb{flex:0 0 auto;min-width:56px;padding:9px 8px 8px;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--txt3);cursor:pointer;transition:color .15s;position:relative}
 .nb.active{color:var(--ind-l)}
 .nb .ic{font-size:18px;line-height:1}
-.nb .lb{font-size:10px;font-weight:500}
+.nb .lb{font-size:10px;font-weight:500;white-space:nowrap}
 @media(max-width:767px){
   #sb{transform:translateX(-100%)}
   #content{margin-left:0;padding-bottom:66px}
@@ -434,6 +435,7 @@ html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);borde
 
     <div id="content">
       <div id="tab-dash" class="page active"></div>
+      <div id="tab-portfolio" class="page"></div>
       <div id="tab-projects" class="page"></div>
       <div id="tab-people" class="page"></div>
       <div id="tab-buildings" class="page"></div>
@@ -550,7 +552,8 @@ let bulkMode = false, selTasks = new Set();
 let notifCount = 0;
 let DB = {
   buildings:[], people:[], projects:[], milestones:[], tasks:[],
-  pb:[], de:{}, templates:[], docs:[], notifications:[], schedule:null
+  pb:[], de:{}, templates:[], docs:[], notifications:[], schedule:null,
+  themes:[], programs:[]
 };
 
 /* ── SYNC ── */
@@ -566,7 +569,7 @@ async function load() {
   try {
     const uid = CHAIRMAN_UID || U.id;
     const myUid = U.id;
-    const [b,p,pr,ms,t,pb,de,tpl,docs,notifs,sched] = await Promise.all([
+    const [b,p,pr,ms,t,pb,de,th,prog,tpl,docs,notifs,sched] = await Promise.all([
       SB.from('buildings').select('*').eq('user_id',uid).order('serial'),
       SB.from('people').select('*').eq('user_id',uid).order('name'),
       SB.from('projects').select('*').eq('user_id',uid).order('created_at'),
@@ -574,6 +577,8 @@ async function load() {
       SB.from('tasks').select('*').eq('user_id',uid).order('created_at'),
       SB.from('project_buildings').select('*').eq('user_id',uid),
       SB.from('digest_edits').select('*').eq('user_id',uid),
+      SB.from('themes').select('*').eq('user_id',uid).order('seq').order('created_at'),
+      SB.from('programs').select('*').eq('user_id',uid).order('seq').order('created_at'),
       SB.from('project_templates').select('*').eq('user_id',CHAIRMAN_UID||U.id).order('created_at'),
       SB.from('documents').select('*').eq('workspace_id',uid),
       SB.from('notifications').select('*').eq('for_user_id',myUid).order('created_at',{ascending:false}).limit(50),
@@ -581,13 +586,15 @@ async function load() {
     ]);
     DB.buildings  = (b.data||[]).map(x => ({...x, softHandover:x.soft_handover, hardHandover:x.hard_handover, btype:x.btype||'operational'}));
     DB.people     = p.data||[];
-    DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium'}));
+    DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium', programId:x.program_id}));
     DB.milestones = (ms.data||[]).map(x => ({...x, projectId:x.project_id}));
     DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, buildingRefId:x.project_building_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[]}));
     DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion, secondaryOwnerId:x.secondary_owner_id}));
     const ed = {};
     (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
     DB.de = ed;
+    DB.themes       = (th.data||[]).map(x=>({...x}));
+    DB.programs     = (prog.data||[]).map(x=>({...x, themeId:x.theme_id, primaryOwnerId:x.primary_stakeholder_id}));
     DB.templates    = tpl.data||[];
     DB.docs         = docs.data||[];
     DB.notifications= notifs.data||[];
@@ -728,12 +735,13 @@ function updateNotifBadge() {
 function buildNav() {
   const isSuper   = MY_ROLE === 'super_admin';
   const isPrimary = MY_ROLE === 'primary_stakeholder';
-  const nb = '<span class="notif-badge" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);min-width:18px;height:18px;border-radius:99px;background:var(--rose);color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px"></span>';
+  const nb = '<span class="notif-badge"></span>';
 
   const sbNav = document.querySelector('.sb-nav');
   if (sbNav) {
     sbNav.innerHTML =
-      '<button class="sb-b active" data-tab="dash" style="position:relative"><span class="ic">⌂</span> '+(isSuper?'Command Centre':'My Dashboard')+'</button>'+
+      '<button class="sb-b active" data-tab="dash"><span class="ic">⌂</span> '+(isSuper?'Command Centre':'My Dashboard')+'</button>'+
+      '<button class="sb-b" data-tab="portfolio"><span class="ic">🗂</span> Portfolio</button>'+
       '<button class="sb-b" data-tab="projects"><span class="ic">📋</span> Projects</button>'+
       (isSuper||isPrimary ? '<button class="sb-b" data-tab="people"><span class="ic">👥</span> People</button>' : '')+
       (isSuper ? '<button class="sb-b" data-tab="buildings"><span class="ic">🏢</span> Buildings</button>' : '')+
@@ -746,20 +754,19 @@ function buildNav() {
   if (bn) {
     bn.innerHTML =
       '<button class="nb active" data-tab="dash"><span class="ic">⌂</span><span class="lb">Home</span></button>'+
+      '<button class="nb" data-tab="portfolio"><span class="ic">🗂</span><span class="lb">Portfolio</span></button>'+
       '<button class="nb" data-tab="projects"><span class="ic">📋</span><span class="lb">Projects</span></button>'+
-      (isSuper ? '<button class="nb" data-tab="analytics"><span class="ic">📊</span><span class="lb">Analytics</span></button>' : '')+
+      (isSuper||isPrimary ? '<button class="nb" data-tab="people"><span class="ic">👥</span><span class="lb">People</span></button>' : '')+
       '<button class="nb" data-tab="notifications" style="position:relative"><span class="ic">🔔</span><span class="lb">Alerts</span>'+nb+'</button>'+
-      (isSuper ? '<button class="nb" data-tab="digest"><span class="ic">📤</span><span class="lb">Digest</span></button>' : '')+
       '<button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>';
   }
-  ['roles','notifications','analytics'].forEach(id => {
+  ['roles','notifications','analytics','portfolio'].forEach(id => {
     if (!document.getElementById('tab-'+id)) {
       const d = document.createElement('div'); d.id='tab-'+id; d.className='page';
       document.getElementById('content').appendChild(d);
     }
   });
   updateNotifBadge();
-  // Re-attach click listeners after rebuilding nav HTML
   document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
   });
@@ -777,6 +784,7 @@ function switchTab(id) {
 }
 function renderTab(id) {
   if      (id==='dash')          rDash();
+  else if (id==='portfolio')     rPortfolio();
   else if (id==='projects')      rProj();
   else if (id==='people')        rPpl();
   else if (id==='buildings')     rBld();
@@ -1906,6 +1914,11 @@ function oPrF(id) {
   h += '</div>';
 
   h += '<div class="fg"><label class="fl">Project name</label><input id="pf-n" class="gi" placeholder="e.g. Pan-India Network Rollout" value="'+esc(p?.name||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">Program (optional)</label><select id="pf-prog" class="gi"><option value="">— No program —</option>';
+  DB.programs.filter(pg=>pg.status!=='archived').forEach(pg=>{
+    h += '<option value="'+pg.id+'"'+(pg.id===p?.programId?' selected':'')+'>'+esc(pg.name)+'</option>';
+  });
+  h += '</select></div>';
   h += '<div class="fg"><label class="fl">Description</label><textarea id="pf-d" class="gi">'+esc(p?.description||p?.desc||'')+'</textarea></div>';
   h += '<div class="fr"><div class="fg"><label class="fl">Status</label>'+selOpts('pf-s',p?.status||'not_started',TS)+'</div>';
   h += '<div class="fg"><label class="fl">Health</label>'+selOpts('pf-h',p?.health||'on_track',HS)+'</div></div>';
@@ -1922,15 +1935,16 @@ async function svPr(id) {
   const obj = {
     name:nm, description:val('pf-d').trim(),
     primary_stakeholder_id:val('pf-ps')||null,
+    program_id:val('pf-prog')||null,
     status:val('pf-s'), health:val('pf-h'), priority:val('pf-pr'),
     deadline:val('pf-dl')||null, color:val('pf-c'),
   };
   if (id) {
     await SB.from('projects').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-    DB.projects = DB.projects.map(x => x.id===id ? {...x,...obj,primaryOwnerId:obj.primary_stakeholder_id,desc:obj.description} : x);
+    DB.projects = DB.projects.map(x => x.id===id ? {...x,...obj,primaryOwnerId:obj.primary_stakeholder_id,desc:obj.description,programId:obj.program_id} : x);
   } else {
     const {data} = await SB.from('projects').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (data) DB.projects.push({...data, primaryOwnerId:data.primary_stakeholder_id, desc:data.description, health:data.health||'on_track', priority:data.priority||'medium'});
+    if (data) DB.projects.push({...data, primaryOwnerId:data.primary_stakeholder_id, desc:data.description, health:data.health||'on_track', priority:data.priority||'medium', programId:data.program_id});
   }
   CS();
   rProj();
@@ -3436,8 +3450,261 @@ async function svSchedule() {
 }
 
 /* ══════════════════════════════════════════════════════
-   TOAST NOTIFICATIONS (in-app)
+   PORTFOLIO — Themes → Programs → Projects hierarchy
 ══════════════════════════════════════════════════════ */
+
+const THEME_COLORS  = ['#1D4ED8','#0284C7','#0D9488','#059669','#65A30D','#D97706','#DC2626','#9333EA','#DB2777','#475569'];
+const PROG_STATUSES = {active:{l:'Active',c:'#059669',bg:'#F0FDF4',bdr:'#BBF7D0'},on_hold:{l:'On Hold',c:'#D97706',bg:'#FFFBEB',bdr:'#FDE68A'},completed:{l:'Completed',c:'#1D4ED8',bg:'#EFF6FF',bdr:'#BFDBFE'},archived:{l:'Archived',c:'#475569',bg:'#F8FAFC',bdr:'#E2E8F0'}};
+
+// ── Expand/collapse state ──
+let expTheme = {}, expProg = {};
+
+function rPortfolio() {
+  const el = document.getElementById('tab-portfolio');
+  if (!el) return;
+
+  // Gather stats
+  const totalThemes   = DB.themes.filter(t=>t.status==='active').length;
+  const totalPrograms = DB.programs.filter(p=>p.status!=='archived').length;
+  const totalProjects = DB.projects.filter(p=>p.status!=='done').length;
+  const totalOverdue  = DB.tasks.filter(t=>isOD(t.dueDate,t.status)).length;
+
+  let h = '<div class="ph"><div><div class="pt">Portfolio</div><div class="ps">Themes · Programs · Projects</div></div>';
+  if (MY_ROLE==='super_admin') {
+    h += '<div style="display:flex;gap:6px">';
+    h += '<button class="btn btn-g btn-sm" onclick="oThemeF()">+ Theme</button>';
+    h += '<button class="btn btn-p btn-sm" onclick="oProgF()">+ Program</button>';
+    h += '</div>';
+  }
+  h += '</div>';
+
+  // Summary strip
+  h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">';
+  const strips = [{n:totalThemes,l:'Themes',c:'var(--ind-l)'},{n:totalPrograms,l:'Programs',c:'var(--teal)'},{n:totalProjects,l:'Active projects',c:'var(--txt)'},{n:totalOverdue,l:'Overdue tasks',c:'var(--rose)'}];
+  strips.forEach(s=>{
+    h += '<div style="background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:12px 14px">';
+    h += '<div style="font-size:22px;font-weight:700;color:'+s.c+'">'+s.n+'</div>';
+    h += '<div style="font-size:11px;color:var(--txt3);margin-top:3px">'+s.l+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Unassigned projects (not in any program)
+  const unassignedProjs = DB.projects.filter(p=>p.status!=='done'&&!p.programId);
+
+  if (!DB.themes.length && !DB.programs.length) {
+    h += '<div class="es"><span class="em">🗂</span><div class="et">No portfolio structure yet</div><div class="ed">Create Themes to group strategic areas, then Programs to group related projects underneath.</div></div>';
+    if (unassignedProjs.length) {
+      h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Unassigned Projects ('+unassignedProjs.length+')</div>';
+      unassignedProjs.forEach(proj => { h += portfolioProjectRow(proj); });
+    }
+    el.innerHTML = h;
+    return;
+  }
+
+  // ── THEMES ──────────────────────────────────────────
+  const activeThemes = DB.themes.filter(t=>t.status==='active');
+  activeThemes.forEach(theme => {
+    const themePrograms = DB.programs.filter(p=>p.theme_id===theme.id&&p.status!=='archived');
+    const themeProjects = DB.projects.filter(p=>p.status!=='done'&&themePrograms.some(prog=>prog.id===p.programId));
+    const themeOD = DB.tasks.filter(t=>themeProjects.some(p=>p.id===t.projectId)&&isOD(t.dueDate,t.status)).length;
+    const isExpT = expTheme[theme.id]!==false; // default expanded
+
+    h += '<div style="margin-bottom:16px">';
+    // Theme header row
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--glass);border:1px solid var(--bdr);border-left:4px solid '+theme.color+';border-radius:var(--r);cursor:pointer;margin-bottom:2px" onclick="expTheme[\''+theme.id+'\']=expTheme[\''+theme.id+'\']==='+(isExpT?'false':'true')+'===false?true:false;rPortfolio()">';
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:14px;font-weight:700;color:var(--txt)">'+esc(theme.name)+'</div>';
+    if (theme.description) h += '<div style="font-size:12px;color:var(--txt3);margin-top:1px">'+esc(theme.description)+'</div>';
+    h += '</div>';
+    h += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
+    h += '<span style="font-size:11px;color:var(--txt3)">'+themePrograms.length+' program'+(themePrograms.length!==1?'s':'')+' · '+themeProjects.length+' project'+(themeProjects.length!==1?'s':'')+'</span>';
+    if (themeOD) h += '<span class="bd p-cr">'+themeOD+' overdue</span>';
+    if (MY_ROLE==='super_admin') h += '<button onclick="event.stopPropagation();oThemeF(\''+theme.id+'\')" class="mb" style="font-size:11px;padding:3px 8px">✎</button>';
+    h += '<span style="font-size:12px;color:var(--txt3)">'+(isExpT?'▾':'▸')+'</span>';
+    h += '</div></div>';
+
+    if (isExpT) {
+      // Programs under this theme
+      if (!themePrograms.length) {
+        h += '<div style="margin-left:20px;padding:10px 14px;background:var(--glass2);border-radius:var(--r-sm);border:1px dashed var(--bdr);font-size:12px;color:var(--txt3);margin-bottom:4px">No programs yet — <button onclick="oProgF(null,\''+theme.id+'\')" style="background:none;border:none;color:var(--ind-l);cursor:pointer;font-size:12px;font-weight:500">+ Add program</button></div>';
+      } else {
+        themePrograms.forEach(prog => { h += portfolioProgramBlock(prog, theme); });
+      }
+    }
+    h += '</div>';
+  });
+
+  // Programs without a theme
+  const orphanPrograms = DB.programs.filter(p=>!p.theme_id&&p.status!=='archived');
+  if (orphanPrograms.length) {
+    h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Programs (no theme)</div>';
+    orphanPrograms.forEach(prog => { h += portfolioProgramBlock(prog, null); });
+  }
+
+  // Unassigned projects
+  if (unassignedProjs.length) {
+    h += '<div style="border-top:1px solid var(--bdr);margin-top:16px;padding-top:16px">';
+    h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Projects not in any program ('+unassignedProjs.length+')</div>';
+    unassignedProjs.forEach(proj => { h += portfolioProjectRow(proj); });
+    h += '</div>';
+  }
+
+  el.innerHTML = h;
+}
+
+function portfolioProgramBlock(prog, theme) {
+  const progProjects = DB.projects.filter(p=>p.status!=='done'&&p.programId===prog.id);
+  const progOD = DB.tasks.filter(t=>progProjects.some(p=>p.id===t.projectId)&&isOD(t.dueDate,t.status)).length;
+  const progDone = progProjects.filter(p=>p.status==='done').length;
+  const pct = progProjects.length ? Math.round(progDone/progProjects.length*100) : 0;
+  const owner = DB.people.find(p=>p.id===prog.primaryOwnerId);
+  const st = PROG_STATUSES[prog.status]||PROG_STATUSES.active;
+  const isExpP = expProg[prog.id]!==false; // default expanded
+  const accentColor = theme?.color||prog.color||'#0284C7';
+
+  let h = '<div style="margin-left:20px;margin-bottom:8px">';
+  // Program header
+  h += '<div style="background:var(--glass);border:1px solid var(--bdr);border-left:3px solid '+accentColor+';border-radius:var(--r-sm);overflow:hidden">';
+  h += '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer" onclick="expProg[\''+prog.id+'\']=expProg[\''+prog.id+'\']==='+(isExpP?'false':'true')+'===false?true:false;rPortfolio()">';
+  h += '<div style="flex:1;min-width:0">';
+  h += '<div style="display:flex;align-items:center;gap:8px">';
+  h += '<span style="font-size:13px;font-weight:600;color:var(--txt)">'+esc(prog.name)+'</span>';
+  h += '<span class="bd" style="background:'+st.bg+';color:'+st.c+';border-color:'+st.bdr+'">'+st.l+'</span>';
+  if (owner) h += av(owner.name,owner.color,20)+'<span style="font-size:11px;color:var(--txt3)">'+esc(owner.name.split(' ')[0])+'</span>';
+  h += '</div>';
+  if (prog.description) h += '<div style="font-size:11px;color:var(--txt3);margin-top:2px">'+esc(prog.description)+'</div>';
+  h += '</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
+  if (progOD) h += '<span class="bd p-cr">⚠ '+progOD+'</span>';
+  h += '<span style="font-size:11px;color:var(--txt3)">'+progProjects.length+' project'+(progProjects.length!==1?'s':'')+'</span>';
+  if (MY_ROLE==='super_admin') h += '<button onclick="event.stopPropagation();oProgF(\''+prog.id+'\')" class="mb" style="font-size:11px;padding:3px 8px">✎</button>';
+  h += '<span style="font-size:12px;color:var(--txt3)">'+(isExpP?'▾':'▸')+'</span>';
+  h += '</div></div>';
+
+  // Thin progress bar
+  if (progProjects.length) {
+    h += '<div style="height:3px;background:var(--bdr)"><div style="height:100%;width:'+pct+'%;background:'+accentColor+';transition:width .4s"></div></div>';
+  }
+
+  // Projects in this program
+  if (isExpP) {
+    h += '<div style="padding:8px 12px;border-top:1px solid var(--bdr)">';
+    if (!progProjects.length) {
+      h += '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:8px">No active projects · <button onclick="oPrF()" style="background:none;border:none;color:var(--ind-l);cursor:pointer;font-size:12px;font-weight:500">+ New project</button></div>';
+    } else {
+      progProjects.forEach(proj => { h += portfolioProjectRow(proj); });
+    }
+    if (MY_ROLE==='super_admin') {
+      h += '<button onclick="oPrFWithProgram(\''+prog.id+'\')" style="width:100%;padding:6px;border:1px dashed var(--bdr2);border-radius:var(--r-sm);background:none;color:var(--txt3);font-size:12px;cursor:pointer;margin-top:4px">+ Add project to this program</button>';
+    }
+    h += '</div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+function portfolioProjectRow(proj) {
+  const owner   = DB.people.find(p=>p.id===proj.primaryOwnerId);
+  const allT    = DB.tasks.filter(t=>t.projectId===proj.id);
+  const pct     = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
+  const odCount = allT.filter(t=>isOD(t.dueDate,t.status)).length;
+
+  let h = '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr);margin-bottom:4px;cursor:pointer" onclick="switchTab(\'projects\');setTimeout(()=>{expP[\''+proj.id+'\']=true;rProj();},60)">';
+  h += '<div style="width:8px;height:8px;border-radius:50%;background:'+proj.color+';flex-shrink:0"></div>';
+  h += '<div style="flex:1;min-width:0">';
+  h += '<div style="font-size:13px;font-weight:500;color:var(--txt)">'+esc(proj.name)+'</div>';
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-top:3px">';
+  h += hBdg(proj.health||'on_track');
+  if (owner) h += '<span style="font-size:11px;color:var(--txt3)">'+esc(owner.name.split(' ')[0])+'</span>';
+  if (proj.deadline) h += '<span style="font-size:11px;color:var(--txt3)">📅 '+fd(proj.deadline)+'</span>';
+  h += '</div></div>';
+  // Mini progress
+  h += '<div style="width:60px;flex-shrink:0">';
+  h += '<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-bottom:3px"><div style="height:100%;width:'+pct+'%;background:var(--ind-l)"></div></div>';
+  h += '<div style="font-size:10px;color:var(--txt3);text-align:right">'+pct+'%</div>';
+  h += '</div>';
+  if (odCount) h += '<span class="bd p-cr" style="flex-shrink:0">'+odCount+'</span>';
+  h += '<span style="font-size:11px;color:var(--txt3);flex-shrink:0">→</span>';
+  h += '</div>';
+  return h;
+}
+
+// ── Theme CRUD ──
+function oThemeF(id) {
+  const t   = id ? DB.themes.find(x=>x.id===id) : null;
+  const rc  = t?.color || THEME_COLORS[DB.themes.length % THEME_COLORS.length];
+  let h = '<div class="fg"><label class="fl">Theme name</label><input id="tf-n" class="gi" placeholder="e.g. Real Estate Expansion" value="'+esc(t?.name||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">Description</label><textarea id="tf-d" class="gi" placeholder="What this strategic area covers">'+esc(t?.description||'')+'</textarea></div>';
+  h += '<div class="fg"><label class="fl">Colour</label><div class="sw-wrap">';
+  THEME_COLORS.forEach(c=>{h+='<div class="sw'+(c===rc?' on':'')+'" style="background:'+c+'" onclick="SC(\'tf-c\',\''+c+'\')"></div>';});
+  h += '</div><input type="hidden" id="tf-c" value="'+rc+'"></div>';
+  if (id) h += '<div class="fg"><label class="fl">Status</label><select id="tf-st" class="gi"><option value="active"'+(t?.status==='active'?' selected':'')+'>Active</option><option value="archived"'+(t?.status==='archived'?' selected':'')+'>Archived</option></select></div>';
+  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svTheme(\''+( id||'')+'\')">Save theme</button></div>';
+  OS(id?'Edit theme':'New theme', h);
+}
+async function svTheme(id) {
+  const name = val('tf-n').trim(); if (!name) return;
+  const obj = {name, description:val('tf-d').trim(), color:val('tf-c'), status:val('tf-st')||'active'};
+  const uid = CHAIRMAN_UID||U.id;
+  if (id) {
+    await SB.from('themes').update(obj).eq('id',id).eq('user_id',uid);
+    DB.themes = DB.themes.map(x=>x.id===id?{...x,...obj}:x);
+  } else {
+    const {data} = await SB.from('themes').insert({...obj,user_id:uid,seq:DB.themes.length}).select().single();
+    if (data) DB.themes.push(data);
+  }
+  CS(); rPortfolio();
+}
+
+// ── Program CRUD ──
+function oProgF(id, defaultThemeId) {
+  const p   = id ? DB.programs.find(x=>x.id===id) : null;
+  const rc  = p?.color || '#0284C7';
+  let h = '<div class="fg"><label class="fl">Program name</label><input id="pgf-n" class="gi" placeholder="e.g. Mumbai Cluster Rollout" value="'+esc(p?.name||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">Description</label><textarea id="pgf-d" class="gi" placeholder="What this program delivers">'+esc(p?.description||'')+'</textarea></div>';
+  h += '<div class="fg"><label class="fl">Theme</label><select id="pgf-th" class="gi"><option value="">— No theme —</option>';
+  DB.themes.filter(t=>t.status==='active').forEach(t=>{
+    const sel = (p?.theme_id||defaultThemeId)===t.id?' selected':'';
+    h += '<option value="'+t.id+'"'+sel+'>'+esc(t.name)+'</option>';
+  });
+  h += '</select></div>';
+  h += '<div class="fg"><label class="fl">Program lead</label><select id="pgf-po" class="gi"><option value="">— Unassigned —</option>';
+  DB.people.forEach(pe=>{h+='<option value="'+pe.id+'"'+(pe.id===p?.primaryOwnerId?' selected':'')+'>'+esc(pe.name)+(pe.role?' ('+esc(pe.role)+')':'')+'</option>';});
+  h += '</select></div>';
+  h += '<div class="fr"><div class="fg"><label class="fl">Deadline</label><input id="pgf-dl" class="gi" type="date" value="'+(p?.deadline||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">Status</label><select id="pgf-st" class="gi">';
+  Object.entries(PROG_STATUSES).forEach(([k,v])=>{h+='<option value="'+k+'"'+(k===(p?.status||'active')?' selected':'')+'>'+v.l+'</option>';});
+  h += '</select></div></div>';
+  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svProg(\''+( id||'')+'\')">Save program</button></div>';
+  OS(id?'Edit program':'New program', h);
+}
+async function svProg(id) {
+  const name = val('pgf-n').trim(); if (!name) return;
+  const obj = {name, description:val('pgf-d').trim(), theme_id:val('pgf-th')||null, primary_stakeholder_id:val('pgf-po')||null, deadline:val('pgf-dl')||null, status:val('pgf-st')||'active'};
+  const uid = CHAIRMAN_UID||U.id;
+  if (id) {
+    await SB.from('programs').update(obj).eq('id',id).eq('user_id',uid);
+    DB.programs = DB.programs.map(x=>x.id===id?{...x,...obj,themeId:obj.theme_id,primaryOwnerId:obj.primary_stakeholder_id}:x);
+  } else {
+    const {data} = await SB.from('programs').insert({...obj,user_id:uid,seq:DB.programs.length}).select().single();
+    if (data) DB.programs.push({...data,themeId:data.theme_id,primaryOwnerId:data.primary_stakeholder_id});
+  }
+  CS(); rPortfolio();
+}
+
+// ── Open project form pre-filled with a program ──
+function oPrFWithProgram(programId) {
+  oPrF(); // open project form normally
+  // After sheet opens, pre-select the program
+  setTimeout(()=>{
+    const el = document.getElementById('pf-prog');
+    if (el) el.value = programId;
+  }, 50);
+}
+
+
 function showToast(msg, type) {
   // Remove any existing toast
   const existing = document.getElementById('_toast');
