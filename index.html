@@ -443,6 +443,7 @@ html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);borde
       <div id="tab-roles" class="page"></div>
       <div id="tab-notifications" class="page"></div>
       <div id="tab-analytics" class="page"></div>
+      <div id="tab-reports" class="page"></div>
     </div>
 
     <div id="bn">
@@ -538,6 +539,7 @@ const isOD  = (d,s) => !!(d && d < tday() && s !== 'done');
 const nowFull = () => new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const val   = id => { const e=document.getElementById(id); return e ? e.value : ''; };
+const valR  = name => { const e=document.querySelector('input[name="'+name+'"]:checked'); return e ? e.value : ''; };
 const bdg   = (s,sys) => { const i=(sys||TS)[s]||TS.not_started; return '<span class="bd" style="background:'+i.bg+';color:'+i.c+'">'+i.l+'</span>'; };
 const hBdg  = h => { const i=HS[h]||HS.on_track; return '<span class="bd '+i.cls+'">'+i.l+'</span>'; };
 const pBdg  = p => { const i=PS[p]||PS.medium;   return '<span class="bd '+i.cls+'">'+i.l+'</span>'; };
@@ -553,6 +555,7 @@ let MY_ROLE = 'super_admin';
 let MY_PERSON_ID = null;
 let CHAIRMAN_UID = null;
 let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active', projView = 'list';
+let _dashOwner = '__all__'; // Chairman stakeholder filter: '__all__' or a person.id
 let bulkMode = false, selTasks = new Set();
 let notifCount = 0;
 let DB = {
@@ -593,7 +596,7 @@ async function load() {
     DB.people     = p.data||[];
     DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium', programId:x.program_id}));
     DB.milestones = (ms.data||[]).map(x => ({...x, projectId:x.project_id}));
-    DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, buildingRefId:x.project_building_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[]}));
+    DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, buildingRefId:x.project_building_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[], recurringMeeting:x.recurring_meeting||false, meetingFrequency:x.meeting_frequency||'weekly', lastMeetingAt:x.last_meeting_at, nextMeetingAt:x.next_meeting_at}));
     DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion, secondaryOwnerId:x.secondary_owner_id}));
     const ed = {};
     (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
@@ -722,6 +725,7 @@ async function showApp() {
 
   // Check for pending team requests addressed to this user
   await checkTeamRequests();
+  checkRecurringMeetingReminders();
 
   // Build nav based on role
   buildNav();
@@ -754,6 +758,7 @@ function buildNav() {
       (isSuper ? '<button class="sb-b" data-tab="digest"><span class="ic">📤</span> Digest</button>' : '')+
       '<button class="sb-b" data-tab="notifications" style="position:relative"><span class="ic">🔔</span> Notifications'+nb+'</button>'+
       (isSuper ? '<button class="sb-b" data-tab="analytics"><span class="ic">📊</span> Analytics</button>' : '')+
+      (isSuper||isPrimary ? '<button class="sb-b" data-tab="reports"><span class="ic">📈</span> Reports</button>' : '')+
       (isSuper ? '<button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>' : '')+
       (IS_PLATFORM_OWNER ? '<div class="sb-div"></div><button class="sb-b" data-tab="platform" style="color:var(--ind-l);font-weight:600"><span class="ic">⚡</span> Platform Admin</button>' : '');
   }
@@ -764,10 +769,11 @@ function buildNav() {
       '<button class="nb" data-tab="portfolio"><span class="ic">🗂</span><span class="lb">Portfolio</span></button>'+
       '<button class="nb" data-tab="projects"><span class="ic">📋</span><span class="lb">Projects</span></button>'+
       (isSuper||isPrimary ? '<button class="nb" data-tab="people"><span class="ic">👥</span><span class="lb">People</span></button>' : '')+
+      (isSuper||isPrimary ? '<button class="nb" data-tab="reports"><span class="ic">📈</span><span class="lb">Reports</span></button>' : '')+
       '<button class="nb" data-tab="notifications" style="position:relative"><span class="ic">🔔</span><span class="lb">Alerts</span>'+nb+'</button>'+
       '<button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>';
   }
-  ['roles','notifications','analytics','portfolio','platform'].forEach(id => {
+  ['roles','notifications','analytics','portfolio','platform','reports'].forEach(id => {
     if (!document.getElementById('tab-'+id)) {
       const d = document.createElement('div'); d.id='tab-'+id; d.className='page';
       document.getElementById('content').appendChild(d);
@@ -800,6 +806,7 @@ function renderTab(id) {
   else if (id==='notifications') rNotifications();
   else if (id==='analytics')     rAnalytics();
   else if (id==='platform')       rPlatformAdmin();
+  else if (id==='reports')        rReports();
 }
 
 
@@ -861,62 +868,197 @@ function visibleTasks(projIds) {
 /* ══════════════════════════════════════════════════════
    COMMAND CENTRE
 ══════════════════════════════════════════════════════ */
+/* ── RECURRING MEETING UI TOGGLE ── */
+function toggleRecurringUI() {
+  const chk  = document.getElementById('tf-rec');
+  const opts = document.getElementById('rec-opts');
+  const lbl  = document.getElementById('rec-lbl');
+  if (!opts) return;
+  opts.style.display = chk.checked ? 'block' : 'none';
+  lbl.style.marginBottom = chk.checked ? '10px' : '0';
+}
+
+/* ── MARK MEETING HELD ── */
+async function markMeetingHeld(taskId) {
+  const t = DB.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  const freq = t.meetingFrequency || 'weekly';
+  const freqDays = {daily:1, weekly:7, fortnightly:14, monthly:30};
+  const days = freqDays[freq] || 7;
+  const now  = new Date();
+  const next = new Date(now); next.setDate(next.getDate() + days);
+  const obj  = {
+    last_meeting_at: now.toISOString(),
+    next_meeting_at: next.toISOString(),
+  };
+  await SB.from('tasks').update(obj).eq('id', taskId).eq('user_id', CHAIRMAN_UID||U.id);
+  DB.tasks = DB.tasks.map(x => x.id===taskId
+    ? {...x, lastMeetingAt:obj.last_meeting_at, nextMeetingAt:obj.next_meeting_at}
+    : x);
+  showToast('Meeting recorded ✓ — next due: '+fd(next.toISOString().slice(0,10)), 'ok');
+  rDash();
+}
+
+/* ── REQUEST BROWSER NOTIFICATION PERMISSION ── */
+async function requestNotifPerm() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
+/* ── SEND BROWSER NOTIFICATION ── */
+function sendBrowserNotif(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/icon-192.png' });
+  }
+}
+
+/* ── CHECK OVERDUE RECURRING MEETINGS (called on load) ── */
+function checkRecurringMeetingReminders() {
+  const today = tday();
+  const overdueMeetings = DB.tasks.filter(t =>
+    t.recurringMeeting && t.status !== 'done' &&
+    t.nextMeetingAt && t.nextMeetingAt.slice(0,10) <= today
+  );
+  if (overdueMeetings.length) {
+    requestNotifPerm();
+    overdueMeetings.forEach(t => {
+      const proj = DB.projects.find(p => p.id === t.projectId);
+      sendBrowserNotif(
+        '🔄 Meeting overdue: ' + t.title,
+        (proj ? proj.name + ' · ' : '') + 'This recurring meeting is due. Mark it as held when done.'
+      );
+    });
+  }
+}
+
 function rDash() {
   const todayStr = tday();
   const tmrStr   = tmrDay();
-  const myProjs  = visibleProjects();
-  const active   = myProjs.filter(p => p.status!=='done');
-  const myProjIds = new Set(active.map(p => p.id));
-  const myTasks  = visibleTasks(myProjIds);
+  const isSuper  = MY_ROLE === 'super_admin';
 
-  const hCounts  = {on_track:0, at_risk:0, delayed:0};
-  active.forEach(p => { const k=p.health||'on_track'; if (k in hCounts) hCounts[k]++; });
-  const totalOD  = myTasks.filter(t => isOD(t.dueDate,t.status)).length;
-  const dueSoon  = myTasks.filter(t => t.status!=='done' && (t.dueDate===todayStr||t.dueDate===tmrStr)).length;
-
-  let h = '<div class="ph"><div><div class="pt">'+(MY_ROLE==='member'?'My Dashboard':'Command Centre')+'</div><div class="ps">'+nowFull()+'</div></div></div>';
-
-  // For members, show a personal task view instead of owner cards
+  // For members, always show personal dashboard
   if (MY_ROLE === 'member') {
+    const myProjs   = visibleProjects();
+    const active    = myProjs.filter(p => p.status!=='done');
+    const myProjIds = new Set(active.map(p => p.id));
+    const myTasks   = visibleTasks(myProjIds);
+    let h = '<div class="ph"><div><div class="pt">My Dashboard</div><div class="ps">'+nowFull()+'</div></div></div>';
     h += rMemberDash(todayStr, tmrStr, myTasks);
     document.getElementById('tab-dash').innerHTML = h;
     return;
   }
 
-  // people who own at least one active project (visible to this user)
-  const owners = DB.people.filter(p => active.some(pr => pr.primaryOwnerId===p.id));
+  // Chairman / primary_stakeholder view
+  const allVisible  = visibleProjects();
+  const allActive   = allVisible.filter(p => p.status!=='done');
 
-  // health pulse bar
+  // All people who own projects — used for the stakeholder filter dropdown
+  const allOwners = DB.people.filter(p => allActive.some(pr => pr.primaryOwnerId===p.id));
+
+  // Apply stakeholder filter (chairman only — primary_stakeholder always sees their own)
+  let filteredOwners;
+  if (!isSuper) {
+    // Primary stakeholder: only themselves
+    filteredOwners = allOwners.filter(p => p.id === MY_PERSON_ID);
+    if (_dashOwner !== '__all__' && _dashOwner !== MY_PERSON_ID) _dashOwner = '__all__';
+  } else {
+    filteredOwners = (_dashOwner === '__all__') ? allOwners : allOwners.filter(p => p.id === _dashOwner);
+  }
+
+  const shownProjs  = allActive.filter(pr => filteredOwners.some(o => o.id === pr.primaryOwnerId));
+  const shownProjIds = new Set(shownProjs.map(p => p.id));
+  const shownTasks  = DB.tasks.filter(t => shownProjIds.has(t.projectId));
+
+  const hCounts = {on_track:0, at_risk:0, delayed:0};
+  shownProjs.forEach(p => { const k = p.health||'on_track'; if (k in hCounts) hCounts[k]++; });
+  const totalOD = shownTasks.filter(t => isOD(t.dueDate,t.status)).length;
+  const dueSoon = shownTasks.filter(t => t.status!=='done' && (t.dueDate===todayStr||t.dueDate===tmrStr)).length;
+
+  // Recurring meetings due today or overdue
+  const recurringDue = DB.tasks.filter(t =>
+    t.recurringMeeting && t.status!=='done' &&
+    t.nextMeetingAt && t.nextMeetingAt.slice(0,10) <= todayStr
+  );
+
+  let h = '<div class="ph"><div><div class="pt">Command Centre</div><div class="ps">'+nowFull()+'</div></div>';
+
+  // ── STAKEHOLDER FILTER (chairman only) ──
+  if (isSuper && allOwners.length > 1) {
+    h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    h += '<select class="gi" style="margin:0;width:auto;padding:7px 11px;font-size:13px" onchange="_dashOwner=this.value;rDash()">';
+    h += '<option value="__all__"'+(_dashOwner==='__all__'?' selected':'')+'>All stakeholders</option>';
+    allOwners.forEach(p => {
+      h += '<option value="'+p.id+'"'+(_dashOwner===p.id?' selected':'')+'>'+esc(p.name)+(p.role?' — '+esc(p.role):'')+'</option>';
+    });
+    h += '</select>';
+    if (_dashOwner !== '__all__') {
+      h += '<button class="btn btn-g btn-sm" onclick="_dashOwner=\'__all__\';rDash()">✕ Clear filter</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>'; // end ph
+
+  // ── HEALTH PULSE ──
   h += '<div style="display:flex;gap:6px;margin-bottom:12px">';
-  if (hCounts.on_track) h += '<div style="flex:1;text-align:center;padding:10px 8px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#10b981">'+hCounts.on_track+'</div><div style="font-size:10px;color:#10b981;margin-top:1px">On Track</div></div>';
-  if (hCounts.at_risk)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f59e0b">'+hCounts.at_risk+'</div><div style="font-size:10px;color:#f59e0b;margin-top:1px">At Risk</div></div>';
-  if (hCounts.delayed)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:10px"><div style="font-size:18px;font-weight:700;color:#f43f5e">'+hCounts.delayed+'</div><div style="font-size:10px;color:#f43f5e;margin-top:1px">Delayed</div></div>';
-  if (!active.length)   h += '<div style="flex:1;padding:10px;background:var(--glass);border:1px solid var(--bdr);border-radius:10px;font-size:12px;color:var(--txt2);text-align:center">No active projects yet</div>';
+  if (hCounts.on_track) h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--grn)">'+hCounts.on_track+'</div><div style="font-size:10px;color:var(--grn);margin-top:1px">On Track</div></div>';
+  if (hCounts.at_risk)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--amb)">'+hCounts.at_risk+'</div><div style="font-size:10px;color:var(--amb);margin-top:1px">At Risk</div></div>';
+  if (hCounts.delayed)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--rose)">'+hCounts.delayed+'</div><div style="font-size:10px;color:var(--rose);margin-top:1px">Delayed</div></div>';
+  if (!shownProjs.length) h += '<div style="flex:1;padding:10px;background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);font-size:12px;color:var(--txt2);text-align:center">'+ (_dashOwner!=='__all__'?'No active projects for this stakeholder':'No active projects yet')+'</div>';
   h += '</div>';
 
-  // mini stat row
+  // ── KPI STRIP ──
   h += '<div class="sg" style="margin-bottom:16px">';
-  h += '<div class="sc" style="--ac:#f87171;padding:12px"><div class="sn" style="font-size:24px">'+totalOD+'</div><div class="sl">Overdue</div></div>';
-  h += '<div class="sc" style="--ac:#fbbf24;padding:12px"><div class="sn" style="font-size:24px">'+dueSoon+'</div><div class="sl">Due today &amp; tomorrow</div></div>';
+  h += '<div class="sc" style="--ac:var(--rose);padding:12px"><div class="sn" style="font-size:24px">'+totalOD+'</div><div class="sl">Overdue</div></div>';
+  h += '<div class="sc" style="--ac:var(--amb);padding:12px"><div class="sn" style="font-size:24px">'+dueSoon+'</div><div class="sl">Due today &amp; tomorrow</div></div>';
   h += '</div>';
 
-  // ── ESCALATION PANEL ──
+  // ── RECURRING MEETINGS PANEL ──
+  if (recurringDue.length) {
+    h += '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--r);padding:14px 16px;margin-bottom:16px">';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+    h += '<span style="font-size:16px">🔄</span>';
+    h += '<div style="font-size:13px;font-weight:700;color:#92400E">'+recurringDue.length+' recurring meeting'+(recurringDue.length!==1?'s':'')+' due</div>';
+    h += '</div>';
+    recurringDue.forEach(t => {
+      const proj  = DB.projects.find(p => p.id===t.projectId);
+      const pe    = DB.people.find(p => p.id===t.assignedTo);
+      const daysDue = t.nextMeetingAt ? Math.floor((new Date(todayStr)-new Date(t.nextMeetingAt.slice(0,10)))/86400000) : 0;
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#fff;border:1px solid #FDE68A;border-radius:var(--r-sm);margin-bottom:6px">';
+      h += '<div style="flex:1;min-width:0">';
+      h += '<div style="font-size:13px;font-weight:600;color:#1E293B">'+esc(t.title)+'</div>';
+      h += '<div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">';
+      if (proj)  h += '<span style="font-size:11px;color:#64748B">'+esc(proj.name)+'</span>';
+      if (pe)    h += '<span style="font-size:11px;color:#64748B">· '+esc(pe.name.split(' ')[0])+'</span>';
+      h += '<span style="font-size:11px;color:#D97706;font-weight:600">'+(daysDue>0?daysDue+'d overdue':'Due today')+' · '+( t.meetingFrequency||'weekly')+'</span>';
+      h += '</div></div>';
+      h += '<button onclick="markMeetingHeld(\''+t.id+'\')" style="padding:6px 12px;border-radius:var(--r-sm);background:#D97706;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">✓ Mark held</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // ── ESCALATION + FOLLOW-UP ──
   h += rEscalationPanel();
-  // ── FOLLOW-UP ENGINE ──
   h += rFollowUpSection();
 
-  if (!owners.length) {
-    h += '<div class="es"><span class="em">🏗</span><div class="et">Welcome to Taskora</div><div class="ed">Add your team in People, create projects and assign owners — they\'ll appear here.</div></div>';
+  if (!filteredOwners.length) {
+    h += '<div class="es"><span class="em">🏗</span><div class="et">No owners found</div><div class="ed">Add team members and assign them as primary owners on projects.</div></div>';
     document.getElementById('tab-dash').innerHTML = h;
     return;
   }
 
-  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Project Owners</div>';
+  // ── OWNER LABEL ──
+  const ownerLabel = _dashOwner !== '__all__'
+    ? (allOwners.find(p=>p.id===_dashOwner)?.name||'') + "'s Projects"
+    : 'All Project Owners';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">'+ownerLabel+'</div>';
 
-  owners.forEach(person => {
-    const ownedProjs = active.filter(pr => pr.primaryOwnerId===person.id);
+  // ── OWNER CARDS ──
+  filteredOwners.forEach(person => {
+    const ownedProjs = shownProjs.filter(pr => pr.primaryOwnerId===person.id);
     const projIds    = new Set(ownedProjs.map(pr => pr.id));
-    const allTasks   = visibleTasks(projIds);
+    const allTasks   = DB.tasks.filter(t => projIds.has(t.projectId));
     const pending    = allTasks.filter(t => t.status!=='done');
     const done       = allTasks.filter(t => t.status==='done');
     const pct        = allTasks.length ? Math.round(done.length/allTasks.length*100) : 0;
@@ -924,66 +1066,71 @@ function rDash() {
     const dueTT      = pending.filter(t => t.dueDate===todayStr || t.dueDate===tmrStr);
     const dueToday   = pending.filter(t => t.dueDate===todayStr);
     const dueTmr     = pending.filter(t => t.dueDate===tmrStr);
+    const personRecurring = DB.tasks.filter(t => projIds.has(t.projectId) && t.recurringMeeting && t.status!=='done' && t.nextMeetingAt && t.nextMeetingAt.slice(0,10)<=todayStr);
 
     const worstH = ownedProjs.some(pr=>pr.health==='delayed') ? 'delayed'
                  : ownedProjs.some(pr=>pr.health==='at_risk')  ? 'at_risk'
-                 : ownedProjs.every(pr=>pr.health==='on_track') ? 'on_track' : 'not_started';
-    const ringColor = worstH==='delayed' ? '#f43f5e' : worstH==='at_risk' ? '#f59e0b' : '#10b981';
-    const cardBdr   = overdueTasks.length ? 'rgba(244,63,94,.2)' : dueTT.length ? 'rgba(245,158,11,.18)' : 'var(--bdr)';
+                 : 'on_track';
+    const ringColor = worstH==='delayed' ? 'var(--rose)' : worstH==='at_risk' ? 'var(--amb)' : 'var(--grn)';
+    const cardBdr   = overdueTasks.length ? 'var(--rose)' : dueTT.length ? 'var(--amb)' : 'var(--bdr)';
+    const isRedCard = overdueTasks.length > 0;
+    const isAmbCard = !isRedCard && dueTT.length > 0;
 
-    h += '<div class="gc" style="margin-bottom:14px;border-color:'+cardBdr+'">';
+    h += '<div class="gc'+(isRedCard?' red':isAmbCard?' amb':'')+'" style="margin-bottom:14px">';
 
-    // top row
+    // Top row
     h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">';
-    h += '<div style="position:relative;flex-shrink:0">'+av(person.name,person.color,48)+'<div style="position:absolute;inset:-3px;border-radius:50%;border:2.5px solid '+ringColor+';pointer-events:none"></div></div>';
-    h += '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;line-height:1.2">'+esc(person.name)+'</div>'+(person.role ? '<div style="font-size:11px;color:var(--txt2);margin-top:1px">'+esc(person.role)+'</div>' : '')+'</div>';
-    h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">';
-    if (overdueTasks.length) h += '<span class="bd" style="background:rgba(244,63,94,.15);color:var(--rose)">⚠ '+overdueTasks.length+' overdue</span>';
-    else if (dueTT.length)   h += '<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">📅 '+dueTT.length+' due soon</span>';
+    h += '<div style="position:relative;flex-shrink:0">'+av(person.name,person.color,44)+'<div style="position:absolute;inset:-2px;border-radius:50%;border:2px solid '+ringColor+';pointer-events:none"></div></div>';
+    h += '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:var(--txt)">'+esc(person.name)+'</div>'+(person.role?'<div style="font-size:11px;color:var(--txt3);margin-top:1px">'+esc(person.role)+'</div>':'')+'</div>';
+    h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">';
+    if (overdueTasks.length) h += '<span class="bd p-cr">⚠ '+overdueTasks.length+' overdue</span>';
+    else if (dueTT.length)   h += '<span class="bd p-hi">📅 '+dueTT.length+' due soon</span>';
+    if (personRecurring.length) h += '<span class="bd" style="background:#FFFBEB;color:#D97706;border-color:#FDE68A">🔄 '+personRecurring.length+' meeting'+(personRecurring.length!==1?'s':'')+' due</span>';
     h += hBdg(worstH)+'</div></div>';
 
     // KPI boxes
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
-    h += '<div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:var(--ind-l)">'+ownedProjs.length+'</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Projects</div></div>';
-    h += '<div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:'+(overdueTasks.length?'var(--rose)':'var(--txt)')+'">'+pending.length+'</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Pending</div></div>';
-    h += '<div style="text-align:center;padding:9px 6px;background:var(--glass);border-radius:9px;border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:'+(pct===100?'var(--grn)':pct>=60?'var(--teal)':'var(--txt)')+'">'+pct+'%</div><div style="font-size:10px;color:var(--txt2);margin-top:2px">Done</div></div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">';
+    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:var(--ind-l)">'+ownedProjs.length+'</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Projects</div></div>';
+    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:'+(overdueTasks.length?'var(--rose)':'var(--txt)')+'">'+pending.length+'</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Pending</div></div>';
+    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:'+(pct===100?'var(--grn)':pct>=60?'var(--teal)':'var(--txt)')+'">'+pct+'%</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Done</div></div>';
     h += '</div>';
 
-    // progress bar
-    h += '<div class="pw" style="margin-bottom:14px"><div class="pb" style="width:'+pct+'%;background:'+(pct===100?'var(--grn)':person.color)+';box-shadow:0 0 5px '+person.color+'66"></div></div>';
+    // Progress bar
+    h += '<div class="pw" style="margin-bottom:12px"><div class="pb" style="width:'+pct+'%;background:'+(pct===100?'var(--grn)':person.color)+'"></div></div>';
 
-    // due today & tomorrow
-    h += '<div style="border-top:1px solid var(--bdr);padding-top:12px">';
+    // Due today/tomorrow section
+    h += '<div style="border-top:1px solid var(--bdr);padding-top:10px">';
     if (dueTT.length) {
-      h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">';
-      h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em">Due today &amp; tomorrow</div>';
-      h += '<div style="display:flex;gap:5px">';
-      if (dueToday.length) h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">'+dueToday.length+' today</span>';
-      if (dueTmr.length)   h += '<span class="bd" style="background:rgba(245,158,11,.12);color:#f59e0b">'+dueTmr.length+' tomorrow</span>';
+      h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+      h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em">Due today &amp; tomorrow</div>';
+      h += '<div style="display:flex;gap:4px">';
+      if (dueToday.length) h += '<span class="bd p-cr">'+dueToday.length+' today</span>';
+      if (dueTmr.length)   h += '<span class="bd p-hi">'+dueTmr.length+' tomorrow</span>';
       h += '</div></div>';
 
-      dueTT.forEach(t => {
+      dueTT.slice(0,4).forEach(t => {
         const proj     = DB.projects.find(pr => pr.id===t.projectId);
         const executor = DB.people.find(pe => pe.id===t.assignedTo);
         const isToday  = t.dueDate===todayStr;
         const isOd     = isOD(t.dueDate,t.status);
-        const rowBg    = isOd ? 'rgba(244,63,94,.07)' : isToday ? 'rgba(245,158,11,.07)' : 'var(--glass)';
-        const rowBdr   = isOd ? 'rgba(244,63,94,.2)'  : isToday ? 'rgba(245,158,11,.15)' : 'var(--bdr)';
-        const whenColor = isOd ? 'var(--rose)' : isToday ? '#f59e0b' : 'var(--txt3)';
+        const rowBg    = isOd ? '#FEF2F2' : isToday ? '#FFFBEB' : 'var(--glass2)';
+        const rowBdr   = isOd ? '#FECACA' : isToday ? '#FDE68A' : 'var(--bdr)';
+        const whenColor = isOd ? 'var(--rose)' : isToday ? 'var(--amb)' : 'var(--txt3)';
         const whenLabel = isOd ? '⚠ Overdue' : isToday ? 'Today' : 'Tomorrow';
-        const statusStyle = 'flex-shrink:0;padding:4px 9px;border-radius:7px;border:1px solid var(--bdr);background:var(--glass);cursor:pointer;font-size:11px;font-weight:600;color:'+(TS[t.status]?.c||'var(--txt2)')+';white-space:nowrap';
+        const stC = TS[t.status]?.c||'var(--txt2)';
 
-        h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:'+rowBg+';border-radius:9px;border:1px solid '+rowBdr+';margin-bottom:5px">';
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+rowBg+';border-radius:var(--r-sm);border:1px solid '+rowBdr+';margin-bottom:4px">';
         h += '<div style="flex:1;min-width:0">';
-        h += '<div style="font-size:13px;font-weight:500;line-height:1.3">'+esc(t.title)+'</div>';
-        h += '<div style="font-size:11px;color:var(--txt2);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+        h += '<div style="font-size:12px;font-weight:500;color:var(--txt)">'+esc(t.title)+(t.recurringMeeting?' <span style="color:var(--amb);font-size:10px">🔄</span>':'')+'</div>';
+        h += '<div style="font-size:11px;color:var(--txt3);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap">';
         h += '<span style="color:'+whenColor+';font-weight:'+(isToday||isOd?600:400)+'">'+whenLabel+'</span>';
-        if (proj)                              h += '<span>· '+esc(proj.name)+'</span>';
+        if (proj) h += '<span>· '+esc(proj.name)+'</span>';
         if (executor && executor.id!==person.id) h += '<span>· '+esc(executor.name.split(' ')[0])+'</span>';
         h += '</div></div>';
-        h += '<button onclick="dshCySt(\''+t.id+'\')" style="'+statusStyle+'">'+((TS[t.status]&&TS[t.status].l)||'—')+'</button>';
+        h += '<button onclick="dshCySt(\''+t.id+'\')" style="padding:3px 8px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);cursor:pointer;font-size:11px;font-weight:500;color:'+stC+';flex-shrink:0;white-space:nowrap">'+(TS[t.status]?.l||'—')+'</button>';
         h += '</div>';
       });
+      if (dueTT.length > 4) h += '<div style="font-size:11px;color:var(--txt3);text-align:center;padding:4px">+'+( dueTT.length-4)+' more — open Projects to see all</div>';
     } else {
       h += '<div style="text-align:center;font-size:12px;color:var(--txt3)">';
       if (overdueTasks.length) h += '<span style="color:var(--rose)">⚠ '+overdueTasks.length+' overdue — open Projects to action them</span>';
@@ -992,16 +1139,17 @@ function rDash() {
     }
     h += '</div>';
 
-    // project chips
+    // Project chips (clickable shortcuts)
     if (ownedProjs.length) {
-      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;border-top:1px solid var(--bdr);padding-top:11px">';
+      h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;border-top:1px solid var(--bdr);padding-top:10px">';
       ownedProjs.forEach(pr => {
-        h += '<button onclick="switchTab(\'projects\');setTimeout(function(){expP[\''+pr.id+'\']=true;rProj();},50)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:var(--glass);border:1px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:500;color:var(--txt2)">';
+        h += '<button onclick="switchTab(\'projects\');setTimeout(function(){expP[\''+pr.id+'\']=true;rProj();},50)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r-sm);background:var(--glass2);border:1px solid var(--bdr);cursor:pointer;font-size:11px;color:var(--txt2)">';
         h += '<div style="width:7px;height:7px;border-radius:50%;background:'+pr.color+';flex-shrink:0"></div>'+esc(pr.name)+'</button>';
       });
       h += '</div>';
     }
-    h += '</div>';
+
+    h += '</div>'; // end card
   });
 
   document.getElementById('tab-dash').innerHTML = h;
@@ -1172,180 +1320,213 @@ async function setRole(personId, newRole) {
    PEOPLE  (invite-by-email)
 ══════════════════════════════════════════════════════ */
 function rPpl() {
-  let h = '<div class="ph"><div><div class="pt">People</div><div class="ps">'+DB.people.length+' team members</div></div>';
-  h += '<button class="btn btn-p btn-sm" onclick="oPplF()">+ Invite person</button></div>';
+  const isSuper   = MY_ROLE === 'super_admin';
+  const isPrimary = MY_ROLE === 'primary_stakeholder';
+  const canManage = isSuper || isPrimary;
+
+  let h = '<div class="ph"><div><div class="pt">People</div><div class="ps">'+DB.people.length+' team member'+(DB.people.length!==1?'s':'')+' · click name to expand</div></div>';
+  if (canManage) h += '<button class="btn btn-p btn-sm" onclick="oPplF()">+ Invite person</button>';
+  h += '</div>';
+
+  if (isPrimary) {
+    h += '<div style="padding:10px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:var(--r-sm);margin-bottom:16px;font-size:12px;color:#1E40AF">ℹ You can invite and manage <strong>member-level</strong> people. Role upgrades are handled by the chairman.</div>';
+  }
 
   if (!DB.people.length) {
-    h += '<div class="es"><span class="em">👥</span><div class="et">No team members yet</div><div class="ed">Invite your team — they\'ll receive a sign-in link by email and appear in project owner and task assignment dropdowns.</div></div>';
+    h += '<div class="es"><span class="em">👥</span><div class="et">No team members yet</div><div class="ed">Invite your team — they\'ll get a sign-in link and appear in project and task dropdowns.</div></div>';
     document.getElementById('tab-people').innerHTML = h;
     return;
   }
+
+  const roleLabels = {super_admin:'Super Admin', primary_stakeholder:'Primary Stakeholder', member:'Member'};
+  const roleColors = {super_admin:'var(--ind-l)', primary_stakeholder:'var(--teal)', member:'var(--txt3)'};
+  const roleBgs    = {super_admin:'#EFF6FF', primary_stakeholder:'#F0FDFA', member:'var(--glass2)'};
+  const roleBdrs   = {super_admin:'#BFDBFE', primary_stakeholder:'#99F6E4', member:'var(--bdr)'};
 
   DB.people.forEach(person => {
     const ownedProjs = DB.projects.filter(pr => pr.primaryOwnerId===person.id && pr.status!=='done');
     const myTasks    = DB.tasks.filter(t => t.assignedTo===person.id && t.status!=='done');
     const myOD       = myTasks.filter(t => isOD(t.dueDate,t.status));
+    const roleLevel  = person.role_level || 'member';
+    const canAct     = isSuper || (isPrimary && roleLevel === 'member');
 
     h += '<div class="gc">';
     h += '<div style="display:flex;align-items:flex-start;gap:12px">';
-    h += av(person.name,person.color,48);
+    h += av(person.name, person.color, 44);
     h += '<div style="flex:1;min-width:0">';
-    h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:15px;font-weight:700">'+esc(person.name)+'</div>';
-    // invite status badge
-    if (person.invite_status==='pending') {
-      h += '<span class="bd invite-pending" style="border:1px solid rgba(245,158,11,.25)">⏳ Invite pending</span>';
-    } else if (person.invite_status==='accepted') {
-      h += '<span class="bd invite-accepted" style="border:1px solid rgba(16,185,129,.25)">✓ Active</span>';
-    }
+    h += '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">';
+    h += '<div style="font-size:14px;font-weight:700;color:var(--txt)">'+esc(person.name)+'</div>';
+    if (person.invite_status==='pending')  h += '<span class="bd invite-pending">⏳ Pending</span>';
+    if (person.invite_status==='accepted') h += '<span class="bd invite-accepted">✓ Active</span>';
+    h += '<span class="bd" style="background:'+roleBgs[roleLevel]+';color:'+roleColors[roleLevel]+';border-color:'+roleBdrs[roleLevel]+'">'+roleLabels[roleLevel]+'</span>';
     h += '</div>';
-    if (person.role)  h += '<div style="font-size:12px;color:var(--txt2);margin-top:2px">'+esc(person.role)+'</div>';
+    if (person.role)  h += '<div style="font-size:12px;color:var(--txt2)">'+esc(person.role)+'</div>';
     if (person.email) h += '<div style="font-size:12px;color:var(--txt3);margin-top:1px">✉ '+esc(person.email)+'</div>';
-    if (person.phone) h += '<div style="font-size:12px;color:var(--txt3);margin-top:1px">📱 '+esc(person.phone)+'</div>';
-
-    h += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">';
-    if (ownedProjs.length) h += '<span class="bd" style="background:rgba(99,102,241,.14);color:var(--ind-l)">Owns '+ownedProjs.length+' project'+(ownedProjs.length!==1?'s':'')+'</span>';
-    if (myTasks.length)    h += '<span class="bd" style="background:rgba(245,158,11,.1);color:#f59e0b">'+myTasks.length+' task'+(myTasks.length!==1?'s':'')+' assigned</span>';
-    if (myOD.length)       h += '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">'+myOD.length+' overdue</span>';
+    if (person.phone) h += '<div style="font-size:12px;color:var(--txt3);">📱 '+esc(person.phone)+'</div>';
+    h += '<div style="display:flex;gap:5px;margin-top:7px;flex-wrap:wrap">';
+    if (ownedProjs.length) h += '<span class="bd p-me">Owns '+ownedProjs.length+' project'+(ownedProjs.length!==1?'s':'')+'</span>';
+    if (myTasks.length)    h += '<span class="bd p-hi">'+myTasks.length+' task'+(myTasks.length!==1?'s':'')+' assigned</span>';
+    if (myOD.length)       h += '<span class="bd p-cr">'+myOD.length+' overdue</span>';
     h += '</div>';
-
-    // projects owned — mini list
     if (ownedProjs.length) {
-      h += '<div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">';
+      h += '<div style="margin-top:9px;display:flex;flex-direction:column;gap:4px">';
       ownedProjs.forEach(pr => {
         const allT = DB.tasks.filter(t => t.projectId===pr.id);
         const pct  = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
         const od   = allT.filter(t => isOD(t.dueDate,t.status)).length;
-        h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--glass);border-radius:8px;cursor:pointer" onclick="switchTab(\'projects\');setTimeout(function(){expP[\''+pr.id+'\']=true;rProj();},100)">';
-        h += '<div style="width:7px;height:7px;border-radius:50%;background:'+pr.color+';flex-shrink:0;box-shadow:0 0 5px '+pr.color+'55"></div>';
+        h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr);cursor:pointer" onclick="switchTab(\'projects\');setTimeout(function(){expP[\''+pr.id+'\']=true;rProj();},100)">';
+        h += '<div style="width:7px;height:7px;border-radius:50%;background:'+pr.color+';flex-shrink:0"></div>';
         h += '<span style="flex:1;font-size:12px;font-weight:500">'+esc(pr.name)+'</span>';
-        h += od ? '<span class="bd" style="background:rgba(244,63,94,.14);color:var(--rose)">⚠ '+od+'</span>' : hBdg(pr.health);
+        h += od ? '<span class="bd p-cr">⚠ '+od+'</span>' : hBdg(pr.health);
         h += '<span style="font-size:11px;color:var(--txt3)">'+pct+'%</span>';
         h += '</div>';
       });
       h += '</div>';
     }
-
     h += '</div>';
-    h += '<div style="display:flex;gap:6px;flex-shrink:0">';
-    h += '<button class="mb" onclick="oPplF(\''+person.id+'\')">✎</button>';
-    h += '<button class="mb dd" onclick="dPpl(\''+person.id+'\')">×</button>';
-    h += '</div></div></div>';
+    if (canAct) {
+      h += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
+      h += '<button class="mb" onclick="oPplF(\''+person.id+'\')" title="Edit person">✎</button>';
+      h += '<button class="mb dd" onclick="dPpl(\''+person.id+'\')" title="Remove person">×</button>';
+      h += '</div>';
+    }
+    h += '</div></div>';
   });
 
   document.getElementById('tab-people').innerHTML = h;
 }
 
 function oPplF(id) {
-  const p = id ? DB.people.find(x => x.id===id) : null;
-  const rc = p?.color || CLRS[Math.floor(Math.random()*CLRS.length)];
-  const isEdit = !!p;
+  const isSuper = MY_ROLE === 'super_admin';
+  const p       = id ? DB.people.find(x => x.id===id) : null;
+  const rc      = p?.color || CLRS[Math.floor(Math.random()*CLRS.length)];
+  const isEdit  = !!p;
 
   let h = '';
   if (!isEdit) {
-    h += '<div style="font-size:13px;color:var(--txt2);margin-bottom:16px;padding:11px 14px;background:rgba(99,102,241,.08);border-radius:10px;border:1px solid rgba(99,102,241,.2)">✉ A sign-in link will be sent to their email so they can access Taskora.</div>';
+    h += '<div style="padding:10px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:var(--r-sm);margin-bottom:16px;font-size:13px;color:#1E40AF">✉ An email will open for you to send — they sign up with that address and join this workspace.</div>';
   }
   h += '<div class="fr"><div class="fg"><label class="fl">Full name</label><input id="pf-n" class="gi" placeholder="e.g. Rajesh Kumar" value="'+esc(p?.name||'')+'"></div>';
   h += '<div class="fg"><label class="fl">Role / title</label><input id="pf-r" class="gi" placeholder="e.g. VP Operations" value="'+esc(p?.role||'')+'"></div></div>';
   if (!isEdit) {
-    h += '<div class="fg"><label class="fl">Email address <span style="color:var(--rose)">*</span></label><input id="pf-e" class="gi" type="email" placeholder="name@company.com" value="'+esc(p?.email||'')+'"></div>';
+    h += '<div class="fg"><label class="fl">Email address <span style="color:var(--rose)">*</span></label><input id="pf-e" class="gi" type="email" placeholder="name@company.com"></div>';
   }
-  h += '<div class="fg"><label class="fl">WhatsApp number</label><input id="pf-p" class="gi" type="tel" placeholder="91XXXXXXXXXX" value="'+esc(p?.phone||'')+'"></div>';
+  h += '<div class="fg"><label class="fl">WhatsApp</label><input id="pf-p" class="gi" type="tel" placeholder="91XXXXXXXXXX" value="'+esc(p?.phone||'')+'"></div>';
+  if (isSuper) {
+    h += '<div class="fg"><label class="fl">Access level</label><select id="pf-rl" class="gi">';
+    [{v:'member',l:'Member — sees only their tasks'},{v:'primary_stakeholder',l:'Primary Stakeholder — sees owned projects'},{v:'super_admin',l:'Super Admin — full access'}].forEach(o=>{
+      h += '<option value="'+o.v+'"'+((p?.role_level||'member')===o.v?' selected':'')+'>'+o.l+'</option>';
+    });
+    h += '</select></div>';
+  } else {
+    h += '<div style="padding:9px 12px;background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);font-size:12px;color:var(--txt3);margin-bottom:14px">Access level: <strong>Member</strong> (chairman assigns higher roles)</div>';
+    h += '<input type="hidden" id="pf-rl" value="member">';
+  }
   h += CP('pf-c', rc);
-  const btnLabel = isEdit ? 'Save' : 'Invite to Taskora';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPpl(\''+( id||'')+'\')">'+btnLabel+'</button></div>';
-
-  OS(isEdit ? 'Edit person' : 'Invite person', h);
+  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPpl(\''+( id||'')+'\')">'+( isEdit?'Save changes':'Send invite')+'</button></div>';
+  OS(isEdit?'Edit person':'Invite person', h);
 }
 
 async function svPpl(id) {
-  const name  = val('pf-n').trim();
-  if (!name) return;
+  const name = val('pf-n').trim();
+  if (!name) { showToast('Name is required','err'); return; }
   const email = id ? null : val('pf-e').trim();
-  if (!id && !email) { alert('Email is required to send an invite.'); return; }
-
-  const obj = {name, role:val('pf-r').trim(), phone:val('pf-p').trim(), color:val('pf-c')};
+  if (!id && !email) { showToast('Email is required','err'); return; }
+  const roleLevel = val('pf-rl') || 'member';
+  if (MY_ROLE === 'primary_stakeholder' && roleLevel !== 'member') {
+    showToast('You can only invite members','err'); return;
+  }
+  const obj = {name, role:val('pf-r').trim(), phone:val('pf-p').trim(), color:val('pf-c'), role_level:roleLevel};
   if (email) obj.email = email;
-
+  const wuid = CHAIRMAN_UID || U.id;
   if (id) {
-    await SB.from('people').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
+    const {error} = await SB.from('people').update(obj).eq('id',id).eq('user_id',wuid);
+    if (error) { showToast('Update failed: '+error.message,'err'); return; }
+    await SB.from('workspace_access').update({role_level:roleLevel}).eq('person_id',id).eq('chairman_user_id',wuid);
     DB.people = DB.people.map(x => x.id===id ? {...x,...obj} : x);
-    CS();
-    rPpl();
+    CS(); showToast('Saved ✓','ok'); rPpl();
   } else {
-    // Save person record
     obj.invite_status = 'pending';
-    const {data:inserted} = await SB.from('people').insert({...obj, user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (inserted) {
-      DB.people.push(inserted);
-      // Create a team_request so the invitee sees the accept banner when they log in
-      const chairmanName = U.user_metadata?.display_name || (U.email||'').split('@')[0] || 'The chairman';
-      await SB.from('team_requests').insert({
-        chairman_id: U.id,
-        person_id: inserted.id,
-        invitee_email: email,
-        chairman_name: chairmanName,
-        status: 'pending',
-      });
+    const {data:ins, error} = await SB.from('people').insert({...obj, user_id:wuid}).select().single();
+    if (error) { showToast('Invite failed: '+error.message,'err'); return; }
+    if (ins) {
+      DB.people.push({...ins});
+      const cName = U.user_metadata?.display_name || (U.email||'').split('@')[0] || 'Your team';
+      await SB.from('team_requests').insert({chairman_id:wuid, person_id:ins.id, invitee_email:email, chairman_name:cName, status:'pending'});
     }
-    CS();
-    rPpl();
-    // Open chairman's email client with pre-filled invite
-    const appUrl = window.location.origin + window.location.pathname;
-    const subject = encodeURIComponent("You've been added to Taskora — Founder's Office");
-    const body = encodeURIComponent(
-      "Hi " + name + ",\n\n" +
-      "You've been added to our project management system — Taskora, Founder's Office.\n\n" +
-      "To get started:\n" +
-      "1. Open this link: " + appUrl + "\n" +
-      "2. Click 'Create account'\n" +
-      "3. Sign up using this email address: " + email + "\n\n" +
-      "Once you sign in, you'll see a notification to accept the workspace invitation.\n\n" +
-      "Regards"
-    );
-    window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+    CS(); rPpl(); showToast('Invite created ✓','ok');
+    const appUrl  = window.location.origin + window.location.pathname;
+    const subject = encodeURIComponent("You've been invited to Taskora — Founder's Office");
+    const body    = encodeURIComponent("Hi "+name+",\n\nYou've been invited to Taskora — our project management system.\n\nTo get started:\n1. Visit: "+appUrl+"\n2. Click 'Create account'\n3. Sign up with this email: "+email+"\n\nOnce signed in, accept the workspace invitation.\n\nRegards");
+    window.open('mailto:'+email+'?subject='+subject+'&body='+body);
   }
 }
 
 async function dPpl(id) {
-  if (!confirm('Delete this person? They will be unassigned from all tasks and projects.')) return;
-  await delRow('people', id);
+  const person = DB.people.find(x => x.id===id);
+  if (!person) return;
+  if (MY_ROLE === 'primary_stakeholder' && (person.role_level||'member') !== 'member') {
+    showToast('Only the chairman can remove admins or primary stakeholders','err'); return;
+  }
+  if (!confirm('Remove '+esc(person.name||'this person')+'?\n\nThey will be unassigned from all tasks and projects. Their account is not deleted — they just lose access.')) return;
+  const wuid = CHAIRMAN_UID || U.id;
+  const {error} = await SB.from('people').delete().eq('id',id).eq('user_id',wuid);
+  if (error) { showToast('Remove failed: '+error.message,'err'); return; }
+  await SB.from('workspace_access').delete().eq('person_id',id).eq('chairman_user_id',wuid);
+  await SB.from('team_requests').delete().eq('person_id',id);
   DB.people   = DB.people.filter(x => x.id!==id);
-  DB.tasks    = DB.tasks.map(t => t.assignedTo===id ? {...t, assignedTo:null} : t);
-  DB.projects = DB.projects.map(pr => pr.primaryOwnerId===id ? {...pr, primaryOwnerId:null} : pr);
+  DB.tasks    = DB.tasks.map(t => t.assignedTo===id ? {...t,assignedTo:null} : t);
+  DB.projects = DB.projects.map(pr => pr.primaryOwnerId===id ? {...pr,primaryOwnerId:null} : pr);
+  showToast((person.name||'Person')+' removed ✓','ok');
   rPpl();
 }
 
-/* ══════════════════════════════════════════════════════
-   PROJECTS
-══════════════════════════════════════════════════════ */
+function canEditTask(t) {
+  if (MY_ROLE === 'super_admin') return true;
+  if (MY_ROLE === 'primary_stakeholder') {
+    const proj = DB.projects.find(p => p.id === t.projectId);
+    return !!(proj && proj.primaryOwnerId === MY_PERSON_ID);
+  }
+  return false;
+}
+
 function taskRow(t) {
   const pe   = DB.people.find(p => p.id===t.assignedTo);
   const deps = (t.dependsOn||[]).map(id => DB.tasks.find(x => x.id===id)).filter(Boolean).filter(d => d.status!=='done');
   const od   = isOD(t.dueDate, t.status);
   const leftColor = od ? 'var(--rose)' : (PR[t.priority]?.c||'var(--txt3)');
+  const canEdit = canEditTask(t);
 
   let h = '<div class="tr-row'+(od?' od':'')+'" style="border-left-color:'+leftColor+'">';
   h += '<div style="display:flex;align-items:flex-start;gap:8px">';
-  // bulk mode checkbox
-  if (bulkMode) {
+  if (bulkMode && MY_ROLE==='super_admin') {
     h += '<input type="checkbox" id="chk-'+t.id+'" '+(selTasks.has(t.id)?'checked':'')+' onclick="toggleTaskSel(\''+t.id+'\')" style="accent-color:var(--ind);width:16px;height:16px;margin-top:3px;flex-shrink:0">';
   }
   h += '<div style="flex:1;min-width:0">';
   h += '<div style="font-size:13px;font-weight:500;line-height:1.4;margin-bottom:4px">'+esc(t.title)+'</div>';
   h += '<div class="tm">';
-  h += '<span onclick="cySt(\''+t.id+'\')" style="cursor:pointer">'+bdg(t.status)+'</span>';
+  if (canEdit) {
+    h += '<span onclick="cySt(\''+t.id+'\')" style="cursor:pointer">'+bdg(t.status)+'</span>';
+  } else {
+    h += bdg(t.status);
+  }
+  if (t.recurringMeeting) h += '<span class="bd" style="background:#FFFBEB;color:#D97706;border-color:#FDE68A">🔄 Recurring</span>';
   if (t.dueDate) h += '<span style="font-size:11px;color:'+(od?'var(--rose)':'var(--txt3)')+';font-weight:'+(od?600:400)+'">'+(od?'⚠ ':'')+fd(t.dueDate)+'</span>';
   if (pe) h += av(pe.name,pe.color,18)+'<span style="font-size:11px;color:var(--txt2)">'+esc(pe.name.split(' ')[0])+'</span>';
   h += '</div>';
-  if (deps.length) h += '<div style="margin-top:5px;font-size:11px;color:#c084fc;background:rgba(168,85,247,.1);border-radius:6px;padding:3px 8px;display:inline-block">↳ blocked by: '+deps.map(d=>esc(d.title)).join(', ')+'</div>';
+  if (deps.length) h += '<div style="margin-top:5px;font-size:11px;color:var(--amb);background:rgba(245,158,11,.08);border-radius:4px;padding:3px 8px;display:inline-block">↳ blocked by: '+deps.map(d=>esc(d.title)).join(', ')+'</div>';
   if (t.notes)    h += '<div style="margin-top:5px;font-size:12px;color:var(--txt2);line-height:1.5">'+esc(t.notes)+'</div>';
   h += '</div>';
-  h += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
-  h += '<button class="mb" onclick="oTF(\''+t.projectId+'\',\''+(t.milestoneId||'')+'\',\''+t.id+'\')">✎</button>';
-  h += '<button class="mb dd" onclick="dTsk(\''+t.id+'\')">×</button>';
-  h += '</div></div></div>';
+  if (canEdit) {
+    h += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
+    h += '<button class="mb" onclick="oTF(\''+t.projectId+'\',\''+( t.milestoneId||'')+'\',\''+t.id+'\')">✎</button>';
+    h += '<button class="mb dd" onclick="dTsk(\''+t.id+'\')">×</button>';
+    h += '</div>';
+  }
+  h += '</div></div>';
   return h;
 }
+
 
 function rProj() {
   const allVisible = visibleProjects();
@@ -2013,6 +2194,28 @@ function oTF(pid, mid, id) {
     h += '</div></div>';
   }
 
+  // ── RECURRING MEETING ──
+  const isRec = t?.recurringMeeting || false;
+  const recFreq = t?.meetingFrequency || 'weekly';
+  h += '<div class="fg" style="background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:12px 14px">';
+  h += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:'+(isRec?'10px':'0')+'" id="rec-lbl">';
+  h += '<input type="checkbox" id="tf-rec" '+(isRec?'checked':'')+' style="accent-color:var(--ind);width:16px;height:16px;flex-shrink:0" onchange="toggleRecurringUI()">';
+  h += '<div><div style="font-size:13px;font-weight:500;color:var(--txt)">🔄 Recurring meeting required</div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:2px">Enable to track regular meetings for this task until it\'s done</div></div>';
+  h += '</label>';
+  h += '<div id="rec-opts" style="display:'+(isRec?'block':'none')+'">';
+  h += '<label class="fl" style="margin-bottom:6px">Meeting frequency</label>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  [['daily','Daily'],['weekly','Weekly'],['fortnightly','Fortnightly'],['monthly','Monthly']].forEach(([v,l])=>{
+    h += '<label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid '+(recFreq===v?'var(--ind-l)':'var(--bdr)')+';border-radius:var(--r-sm);background:'+(recFreq===v?'#EFF6FF':'var(--glass)')+';cursor:pointer;font-size:12px">';
+    h += '<input type="radio" name="tf-mf" id="tf-mf" value="'+v+'" '+(recFreq===v?'checked':'')+' style="accent-color:var(--ind)"> '+l;
+    h += '</label>';
+  });
+  h += '</div>';
+  if (t?.lastMeetingAt) h += '<div style="margin-top:8px;font-size:11px;color:var(--txt3)">Last meeting: '+fd(t.lastMeetingAt.slice(0,10))+'</div>';
+  if (t?.nextMeetingAt) h += '<div style="font-size:11px;color:var(--amb)">Next due: '+fd(t.nextMeetingAt.slice(0,10))+'</div>';
+  h += '</div></div>';
+
   h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svTsk(\''+( id||'')+'\',\''+p+'\',\''+m+'\')">Save task</button></div>';
   OS(id ? 'Edit task' : 'Add task', h);
 }
@@ -2020,19 +2223,22 @@ async function svTsk(id, pid, mid) {
   const ti = val('tf-ti').trim();
   if (!ti) return;
   const deps = [...document.querySelectorAll('#sh-bd input[type=checkbox]:checked')].map(c => c.value);
+  const isRecurring = document.getElementById('tf-rec')?.checked || false;
   const obj = {
     title:ti, notes:val('tf-no').trim(),
     assigned_to:val('tf-at')||null,
     status:val('tf-st'), priority:val('tf-pr'),
     due_date:val('tf-dd')||null, follow_up:val('tf-fu')||null,
     depends_on:deps, project_id:pid, sub_project_id:mid||null,
+    recurring_meeting:isRecurring,
+    meeting_frequency:isRecurring?(valR('tf-mf')||'weekly'):null,
   };
   if (id) {
     await SB.from('tasks').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-    DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj,projectId:pid,milestoneId:mid||null,assignedTo:obj.assigned_to,dueDate:obj.due_date,followUp:obj.follow_up,dependsOn:deps} : x);
+    DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj,projectId:pid,milestoneId:mid||null,assignedTo:obj.assigned_to,dueDate:obj.due_date,followUp:obj.follow_up,dependsOn:deps,recurringMeeting:isRecurring,meetingFrequency:obj.meeting_frequency} : x);
   } else {
     const {data} = await SB.from('tasks').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (data) DB.tasks.push({...data,projectId:data.project_id,milestoneId:data.sub_project_id,assignedTo:data.assigned_to,dueDate:data.due_date,followUp:data.follow_up,dependsOn:data.depends_on||[]});
+    if (data) DB.tasks.push({...data,projectId:data.project_id,milestoneId:data.sub_project_id,assignedTo:data.assigned_to,dueDate:data.due_date,followUp:data.follow_up,dependsOn:data.depends_on||[],recurringMeeting:data.recurring_meeting||false,meetingFrequency:data.meeting_frequency||'weekly',lastMeetingAt:data.last_meeting_at,nextMeetingAt:data.next_meeting_at});
   }
   CS();
   rProj();
@@ -4088,6 +4294,370 @@ async function declineTeamReq(reqId) {
   if (contentEl) contentEl.style.paddingTop = '';
 }
 
+
+
+/* ══════════════════════════════════════════════════════
+   REPORTS — Stakeholder Performance Analysis
+   Access: super_admin + primary_stakeholder
+   Views: Monthly / Yearly, filterable by stakeholder
+══════════════════════════════════════════════════════ */
+
+// Report state
+let _rptPeriod = 'month'; // 'month' | 'year'
+let _rptOwner  = '__all__';
+let _rptYear   = new Date().getFullYear();
+let _rptMonth  = new Date().getMonth(); // 0-indexed
+
+function rReports() {
+  const el = document.getElementById('tab-reports');
+  if (!el) return;
+  if (MY_ROLE !== 'super_admin' && MY_ROLE !== 'primary_stakeholder') {
+    el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Not authorised</div></div>';
+    return;
+  }
+
+  // Determine visible stakeholders
+  const isSuper = MY_ROLE === 'super_admin';
+  const owners = isSuper
+    ? DB.people.filter(p => DB.projects.some(pr => pr.primaryOwnerId === p.id))
+    : DB.people.filter(p => p.id === MY_PERSON_ID);
+
+  // If primary_stakeholder, lock owner filter to themselves
+  if (!isSuper && owners.length === 1) _rptOwner = owners[0].id;
+
+  const nowDate = new Date();
+  const years = [];
+  for (let y = 2024; y <= nowDate.getFullYear(); y++) years.push(y);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  let h = '<div class="ph"><div><div class="pt">Reports</div>';
+  h += '<div class="ps">Stakeholder performance analysis</div></div>';
+  h += '<button class="btn btn-g btn-sm" onclick="exportReport()">⬇ Export CSV</button></div>';
+
+  // ── Filter bar ──────────────────────────────────────────────────────────
+  h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;padding:12px 14px;background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r)">';
+
+  // Period toggle
+  h += '<div style="display:flex;background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:2px;gap:2px">';
+  h += '<button class="'+((_rptPeriod==='month')?'btn btn-p':'btn btn-g')+' btn-sm" onclick="_rptPeriod=\'month\';rReports()">Monthly</button>';
+  h += '<button class="'+((_rptPeriod==='year')?'btn btn-p':'btn btn-g')+' btn-sm" onclick="_rptPeriod=\'year\';rReports()">Yearly</button>';
+  h += '</div>';
+
+  // Year picker
+  h += '<select class="gi" style="margin:0;width:auto;padding:6px 10px" onchange="_rptYear=parseInt(this.value);rReports()">';
+  years.forEach(y => { h += '<option value="'+y+'"'+(y===_rptYear?' selected':'')+'>'+y+'</option>'; });
+  h += '</select>';
+
+  // Month picker (only in monthly mode)
+  if (_rptPeriod === 'month') {
+    h += '<select class="gi" style="margin:0;width:auto;padding:6px 10px" onchange="_rptMonth=parseInt(this.value);rReports()">';
+    months.forEach((m,i) => { h += '<option value="'+i+'"'+(i===_rptMonth?' selected':'')+'>'+m+'</option>'; });
+    h += '</select>';
+  }
+
+  // Stakeholder picker (super_admin only)
+  if (isSuper) {
+    h += '<select class="gi" style="margin:0;width:auto;padding:6px 10px;flex:1;min-width:160px" onchange="_rptOwner=this.value;rReports()">';
+    h += '<option value="__all__"'+((_rptOwner==='__all__')?' selected':'')+'>All stakeholders</option>';
+    owners.forEach(p => { h += '<option value="'+p.id+'"'+(p.id===_rptOwner?' selected':'')+'>'+esc(p.name)+'</option>'; });
+    h += '</select>';
+  }
+  h += '</div>';
+
+  // ── Compute date range ──────────────────────────────────────────────────
+  let rangeStart, rangeEnd, rangeLabel;
+  if (_rptPeriod === 'month') {
+    rangeStart = new Date(_rptYear, _rptMonth, 1);
+    rangeEnd   = new Date(_rptYear, _rptMonth + 1, 0); // last day of month
+    rangeLabel = months[_rptMonth] + ' ' + _rptYear;
+  } else {
+    rangeStart = new Date(_rptYear, 0, 1);
+    rangeEnd   = new Date(_rptYear, 11, 31);
+    rangeLabel = 'Full Year ' + _rptYear;
+  }
+  const startStr = rangeStart.toISOString().slice(0,10);
+  const endStr   = rangeEnd.toISOString().slice(0,10);
+
+  // ── Determine which owners to show ──────────────────────────────────────
+  const showOwners = (_rptOwner === '__all__') ? owners : owners.filter(p => p.id === _rptOwner);
+
+  if (!showOwners.length) {
+    h += '<div class="es"><span class="em">📭</span><div class="et">No data</div><div class="ed">No primary stakeholders with projects found.</div></div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  // ── Per-stakeholder report blocks ────────────────────────────────────────
+  showOwners.forEach(person => {
+    const ownedProjs = DB.projects.filter(p => p.primaryOwnerId === person.id);
+    const projIds    = new Set(ownedProjs.map(p => p.id));
+    const allTasks   = DB.tasks.filter(t => projIds.has(t.projectId));
+
+    // Filter tasks to the selected period using due_date OR completed_at
+    const periodTasks = allTasks.filter(t => {
+      const dateStr = t.completedAt || t.dueDate || t.created_at;
+      if (!dateStr) return false;
+      const d = dateStr.slice(0,10);
+      return d >= startStr && d <= endStr;
+    });
+
+    // Task breakdown
+    const tasksTotal    = periodTasks.length;
+    const tasksDone     = periodTasks.filter(t => t.status === 'done').length;
+    const tasksInProg   = periodTasks.filter(t => t.status === 'in_progress').length;
+    const tasksBlocked  = periodTasks.filter(t => t.status === 'blocked').length;
+    const tasksAwaiting = periodTasks.filter(t => t.status === 'awaiting').length;
+    const tasksDeferred = periodTasks.filter(t => t.status === 'deferred').length;
+    const tasksNotStart = periodTasks.filter(t => t.status === 'not_started').length;
+    const tasksOverdue  = periodTasks.filter(t => isOD(t.dueDate, t.status)).length;
+    const tasksDepsBlocked = periodTasks.filter(t => (t.dependsOn||[]).some(depId => { const dep = DB.tasks.find(x=>x.id===depId); return dep && dep.status !== 'done'; })).length;
+    const completionRate = tasksTotal ? Math.round(tasksDone / tasksTotal * 100) : 0;
+
+    // Overall tasks (not period-filtered) for context
+    const allOD = allTasks.filter(t => isOD(t.dueDate, t.status)).length;
+    const allDone = allTasks.filter(t => t.status === 'done').length;
+    const allPct  = allTasks.length ? Math.round(allDone / allTasks.length * 100) : 0;
+
+    // Period label for the block
+    const statusColor = completionRate >= 75 ? 'var(--grn)' : completionRate >= 40 ? 'var(--amb)' : 'var(--rose)';
+    const borderColor = tasksOverdue > 0 ? 'var(--rose)' : tasksBlocked > 0 ? 'var(--amb)' : 'var(--bdr)';
+
+    h += '<div style="background:var(--glass);border:1px solid '+borderColor+';border-radius:var(--r);padding:16px;margin-bottom:16px">';
+
+    // Header
+    h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bdr)">';
+    h += av(person.name, person.color, 40);
+    h += '<div style="flex:1;min-width:0">';
+    h += '<div style="font-size:16px;font-weight:700;color:var(--txt)">'+esc(person.name)+'</div>';
+    h += '<div style="font-size:12px;color:var(--txt3);margin-top:2px">'+esc(person.role||'Primary Stakeholder')+' · '+ownedProjs.length+' project'+(ownedProjs.length!==1?'s':'')+'</div>';
+    h += '</div>';
+    // Completion ring
+    h += '<div style="text-align:center;flex-shrink:0">';
+    h += '<div style="font-size:28px;font-weight:800;color:'+statusColor+'">'+completionRate+'%</div>';
+    h += '<div style="font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">'+rangeLabel+'</div>';
+    h += '</div></div>';
+
+    // KPI stat grid
+    h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">';
+    const stats = [
+      {n:tasksTotal,    l:'Tasks in period', c:'var(--txt)'},
+      {n:tasksDone,     l:'Completed',       c:'var(--grn)'},
+      {n:tasksOverdue,  l:'Overdue',         c:tasksOverdue>0?'var(--rose)':'var(--txt3)'},
+      {n:tasksBlocked,  l:'Blocked',         c:tasksBlocked>0?'var(--rose)':'var(--txt3)'},
+      {n:tasksInProg,   l:'In progress',     c:'var(--amb)'},
+      {n:tasksAwaiting, l:'Awaiting',        c:'var(--teal)'},
+      {n:tasksDepsBlocked,l:'Dependency blocks', c:tasksDepsBlocked>0?'var(--rose)':'var(--txt3)'},
+      {n:tasksDeferred, l:'Deferred',        c:'var(--txt3)'},
+    ];
+    stats.forEach(s => {
+      h += '<div style="background:var(--glass2);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:10px;text-align:center">';
+      h += '<div style="font-size:20px;font-weight:700;color:'+s.c+'">'+s.n+'</div>';
+      h += '<div style="font-size:10px;color:var(--txt3);margin-top:3px;text-transform:uppercase;letter-spacing:.04em">'+s.l+'</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+
+    // Progress bar for period
+    if (tasksTotal > 0) {
+      const donePct     = Math.round(tasksDone/tasksTotal*100);
+      const inProcPct   = Math.round(tasksInProg/tasksTotal*100);
+      const blockedPct  = Math.round(tasksBlocked/tasksTotal*100);
+      const restPct     = 100 - donePct - inProcPct - blockedPct;
+      h += '<div style="margin-bottom:14px">';
+      h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--txt3);margin-bottom:5px"><span>Task status breakdown</span><span>'+tasksDone+'/'+tasksTotal+' done</span></div>';
+      h += '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px">';
+      if (donePct>0)    h += '<div style="width:'+donePct+'%;background:var(--grn);border-radius:3px 0 0 3px"></div>';
+      if (inProcPct>0)  h += '<div style="width:'+inProcPct+'%;background:var(--amb)"></div>';
+      if (blockedPct>0) h += '<div style="width:'+blockedPct+'%;background:var(--rose)"></div>';
+      if (restPct>0)    h += '<div style="width:'+restPct+'%;background:var(--bdr2);border-radius:0 3px 3px 0"></div>';
+      h += '</div>';
+      h += '<div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap">';
+      [{c:'var(--grn)',l:'Done'},{c:'var(--amb)',l:'In progress'},{c:'var(--rose)',l:'Blocked'},{c:'var(--bdr2)',l:'Other'}].forEach(lg=>{
+        h += '<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+lg.c+'"></div><span style="font-size:11px;color:var(--txt3)">'+lg.l+'</span></div>';
+      });
+      h += '</div></div>';
+    }
+
+    // Projects owned with health
+    if (ownedProjs.length) {
+      h += '<div style="margin-bottom:14px">';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Projects owned</div>';
+      h += '<div style="display:flex;flex-direction:column;gap:4px">';
+      ownedProjs.forEach(proj => {
+        const projTasks = allTasks.filter(t=>t.projectId===proj.id);
+        const pct = projTasks.length ? Math.round(projTasks.filter(t=>t.status==='done').length/projTasks.length*100) : 0;
+        const projOD = projTasks.filter(t=>isOD(t.dueDate,t.status)).length;
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)">';
+        h += '<div style="width:7px;height:7px;border-radius:50%;background:'+proj.color+';flex-shrink:0"></div>';
+        h += '<div style="flex:1;min-width:0;font-size:12px;font-weight:500">'+esc(proj.name)+'</div>';
+        h += hBdg(proj.health||'on_track');
+        if (projOD) h += '<span class="bd p-cr">⚠ '+projOD+' OD</span>';
+        h += '<div style="width:80px;flex-shrink:0">';
+        h += '<div style="height:4px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-bottom:2px"><div style="height:100%;width:'+pct+'%;background:var(--ind-l)"></div></div>';
+        h += '<div style="font-size:10px;color:var(--txt3);text-align:right">'+pct+'%</div>';
+        h += '</div></div>';
+      });
+      h += '</div></div>';
+    }
+
+    // Detailed task table for the period
+    if (periodTasks.length) {
+      h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Task detail — '+rangeLabel+'</div>';
+      h += '<div class="tw"><table><thead><tr>';
+      ['Task','Project','Status','Priority','Due date','Assigned to','Blocked by','Notes'].forEach(c=>{h+='<th>'+c+'</th>';});
+      h += '</tr></thead><tbody>';
+
+      const statusColors2 = {done:'var(--grn)',in_progress:'var(--amb)',blocked:'var(--rose)',awaiting:'var(--teal)',not_started:'var(--txt3)',deferred:'var(--txt3)'};
+      const priorityColors = {critical:'var(--rose)',high:'var(--amb)',medium:'var(--ind-l)',low:'var(--txt3)'};
+
+      [...periodTasks].sort((a,b)=>{
+        // Sort: overdue first, then by status (blocked, in_progress, awaiting, not_started, done, deferred)
+        const order = {blocked:0,in_progress:1,awaiting:2,not_started:3,done:4,deferred:5};
+        const aOD = isOD(a.dueDate,a.status) ? -1 : 0;
+        const bOD = isOD(b.dueDate,b.status) ? -1 : 0;
+        if (aOD !== bOD) return aOD - bOD;
+        return (order[a.status]||3) - (order[b.status]||3);
+      }).forEach(t => {
+        const proj    = DB.projects.find(p=>p.id===t.projectId);
+        const pe2     = DB.people.find(p=>p.id===t.assignedTo);
+        const od2     = isOD(t.dueDate, t.status);
+        const deps2   = (t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');
+        const sc      = statusColors2[t.status] || 'var(--txt3)';
+        const pc      = priorityColors[t.priority] || 'var(--txt3)';
+
+        h += '<tr style="background:'+(od2?'rgba(220,38,38,.03)':'transparent')+'">';
+        h += '<td style="max-width:200px"><div style="font-weight:500;font-size:12px">'+esc(t.title)+'</div>';
+        if (od2) h += '<div style="font-size:10px;color:var(--rose);margin-top:2px">⚠ Overdue</div>';
+        h += '</td>';
+        h += '<td style="font-size:11px;color:var(--txt2)">'+(proj?esc(proj.name):'—')+'</td>';
+        h += '<td><span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500;background:'+sc+'18;color:'+sc+'">'+((TS[t.status]&&TS[t.status].l)||t.status)+'</span></td>';
+        h += '<td><span style="font-size:11px;color:'+pc+'">'+(t.priority||'medium')+'</span></td>';
+        h += '<td style="font-size:11px;color:'+(od2?'var(--rose)':'var(--txt2)')+';white-space:nowrap">'+(t.dueDate?fd(t.dueDate):'—')+'</td>';
+        h += '<td style="font-size:11px">'+(pe2?'<div style="display:flex;align-items:center;gap:5px">'+av(pe2.name,pe2.color,18)+'<span>'+esc(pe2.name.split(' ')[0])+'</span></div>':'—')+'</td>';
+        h += '<td style="font-size:11px;color:var(--rose)">'+(deps2.length?deps2.map(d=>'<div>'+esc(d.title.slice(0,30))+'</div>').join(''):'—')+'</td>';
+        h += '<td style="font-size:11px;color:var(--txt3);max-width:160px">'+(t.notes?esc(t.notes.slice(0,80))+(t.notes.length>80?'…':''):'—')+'</td>';
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+    } else {
+      h += '<div style="text-align:center;padding:20px;font-size:13px;color:var(--txt3);background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)">No tasks found for '+rangeLabel+'</div>';
+    }
+
+    // Overall portfolio summary (all time, not period-filtered)
+    h += '<div style="margin-top:12px;padding:10px 12px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr);display:flex;gap:16px;flex-wrap:wrap">';
+    h += '<span style="font-size:12px;color:var(--txt3)">Overall (all time):</span>';
+    h += '<span style="font-size:12px;color:var(--txt2)"><strong>'+allTasks.length+'</strong> total tasks</span>';
+    h += '<span style="font-size:12px;color:var(--grn)"><strong>'+allDone+'</strong> done</span>';
+    h += '<span style="font-size:12px;color:'+(allOD?'var(--rose)':'var(--txt3)')+'"><strong>'+allOD+'</strong> overdue</span>';
+    h += '<span style="font-size:12px;color:var(--txt2)"><strong>'+allPct+'%</strong> completion rate</span>';
+    h += '</div>';
+
+    h += '</div>'; // end stakeholder block
+  });
+
+  // Comparison table (super_admin only, all view)
+  if (isSuper && _rptOwner === '__all__' && showOwners.length > 1) {
+    h += '<div style="margin-top:20px">';
+    h += '<div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bdr)">Stakeholder Comparison — '+rangeLabel+'</div>';
+    h += '<div class="tw"><table><thead><tr>';
+    ['Stakeholder','Projects','Tasks in period','Done','Overdue','Blocked','Dep. blocks','% Complete','Performance'].forEach(c=>{h+='<th>'+c+'</th>';});
+    h += '</tr></thead><tbody>';
+
+    const ranked = showOwners.map(person => {
+      const ownedProjs = DB.projects.filter(p=>p.primaryOwnerId===person.id);
+      const projIds    = new Set(ownedProjs.map(p=>p.id));
+      const allT       = DB.tasks.filter(t=>projIds.has(t.projectId));
+      const periodT    = allT.filter(t=>{
+        const dateStr = t.completedAt||t.dueDate||t.created_at;
+        if (!dateStr) return false;
+        const d = dateStr.slice(0,10);
+        return d >= startStr && d <= endStr;
+      });
+      const done     = periodT.filter(t=>t.status==='done').length;
+      const od       = periodT.filter(t=>isOD(t.dueDate,t.status)).length;
+      const blocked  = periodT.filter(t=>t.status==='blocked').length;
+      const depB     = periodT.filter(t=>(t.dependsOn||[]).some(id=>{const dep=DB.tasks.find(x=>x.id===id);return dep&&dep.status!=='done';})).length;
+      const rate     = periodT.length ? Math.round(done/periodT.length*100) : 0;
+      return {person, ownedProjs, periodT, done, od, blocked, depB, rate};
+    }).sort((a,b) => b.rate - a.rate);
+
+    ranked.forEach((r, idx) => {
+      const perf = r.rate >= 80 ? {l:'Excellent',c:'var(--grn)'} : r.rate >= 60 ? {l:'Good',c:'var(--teal)'} : r.rate >= 40 ? {l:'Fair',c:'var(--amb)'} : {l:'Needs attention',c:'var(--rose)'};
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+      h += '<tr>';
+      h += '<td><div style="display:flex;align-items:center;gap:7px">'+av(r.person.name,r.person.color,24)+'<div><div style="font-size:12px;font-weight:600">'+medal+' '+esc(r.person.name)+'</div><div style="font-size:10px;color:var(--txt3)">'+esc(r.person.role||'')+'</div></div></div></td>';
+      h += '<td style="text-align:center">'+r.ownedProjs.length+'</td>';
+      h += '<td style="text-align:center">'+r.periodT.length+'</td>';
+      h += '<td style="text-align:center;color:var(--grn);font-weight:600">'+r.done+'</td>';
+      h += '<td style="text-align:center;color:'+(r.od?'var(--rose)':'var(--txt3)')+'">'+( r.od||'—')+'</td>';
+      h += '<td style="text-align:center;color:'+(r.blocked?'var(--rose)':'var(--txt3)')+'">'+( r.blocked||'—')+'</td>';
+      h += '<td style="text-align:center;color:'+(r.depB?'var(--amb)':'var(--txt3)')+'">'+( r.depB||'—')+'</td>';
+      h += '<td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+r.rate+'%;background:var(--ind-l)"></div></div><span style="font-size:11px;width:32px;flex-shrink:0">'+r.rate+'%</span></div></td>';
+      h += '<td><span style="font-size:11px;font-weight:600;color:'+perf.c+'">'+perf.l+'</span></td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  el.innerHTML = h;
+}
+
+// ── CSV Export ──────────────────────────────────────────────────────────────
+function exportReport() {
+  const isSuper = MY_ROLE === 'super_admin';
+  const owners = isSuper
+    ? DB.people.filter(p => DB.projects.some(pr => pr.primaryOwnerId === p.id))
+    : DB.people.filter(p => p.id === MY_PERSON_ID);
+  const showOwners = (_rptOwner === '__all__') ? owners : owners.filter(p => p.id === _rptOwner);
+
+  const nowDate = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let startStr, endStr, rangeLabel;
+  if (_rptPeriod === 'month') {
+    const rs = new Date(_rptYear, _rptMonth, 1);
+    const re = new Date(_rptYear, _rptMonth + 1, 0);
+    startStr = rs.toISOString().slice(0,10);
+    endStr   = re.toISOString().slice(0,10);
+    rangeLabel = months[_rptMonth] + '_' + _rptYear;
+  } else {
+    startStr = _rptYear + '-01-01';
+    endStr   = _rptYear + '-12-31';
+    rangeLabel = 'Year_' + _rptYear;
+  }
+
+  const rows = [['Stakeholder','Role','Project','Task','Status','Priority','Due Date','Assigned To','Blocked By','Dep. Blocks','Overdue','Notes']];
+
+  showOwners.forEach(person => {
+    const ownedProjs = DB.projects.filter(p=>p.primaryOwnerId===person.id);
+    const projIds    = new Set(ownedProjs.map(p=>p.id));
+    const allTasks   = DB.tasks.filter(t=>projIds.has(t.projectId));
+    const periodTasks = allTasks.filter(t=>{
+      const d = (t.completedAt||t.dueDate||t.created_at||'').slice(0,10);
+      return d >= startStr && d <= endStr;
+    });
+    periodTasks.forEach(t => {
+      const proj  = DB.projects.find(p=>p.id===t.projectId);
+      const pe2   = DB.people.find(p=>p.id===t.assignedTo);
+      const deps  = (t.dependsOn||[]).map(id=>DB.tasks.find(x=>x.id===id)).filter(Boolean).filter(d=>d.status!=='done');
+      const od    = isOD(t.dueDate,t.status);
+      rows.push([
+        person.name, person.role||'', proj?.name||'', t.title,
+        (TS[t.status]?.l||t.status), t.priority||'medium',
+        t.dueDate||'', pe2?.name||'',
+        deps.length ? deps.map(d=>d.title).join('; ') : '',
+        deps.length, od ? 'Yes' : 'No', (t.notes||'').replace(/\n/g,' '),
+      ]);
+    });
+  });
+
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'taskora_report_'+rangeLabel+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Report exported ✓','ok');
+}
 
 let _waitingSW = null;
 
