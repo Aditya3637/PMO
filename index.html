@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Taskora — Executive Control Center for CEO, CFO & COO</title>
-<meta name="description" content="The executive operating system for CEO, CFO, and COO teams. Get financial, operational, and delivery visibility in 60 seconds."/>
-<meta property="og:title" content="Taskora — Executive Operating System for CEO, CFO & COO"/>
+<title>Taskora — Run every business unit from one screen</title>
+<meta name="description" content="The CEO operating system for multi-entity businesses. See what needs your attention in 60 seconds, not 60 minutes of status calls."/>
+<meta property="og:title" content="Taskora — CEO Operating System"/>
 <meta property="og:description" content="Run every business unit from one screen. Replace status calls with accountability signals."/>
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://taskora.deftai.in"/>
@@ -145,18 +145,6 @@ h1 em{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight
 .feature-card h3{font-size:16px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
 .feature-card p{font-size:13px;color:var(--text2);line-height:1.7}
 
-/* ── Leadership cockpit ── */
-.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.role-card{padding:26px 22px;background:linear-gradient(180deg,rgba(39,39,42,.95),rgba(24,24,27,.95));border:1px solid var(--border);border-radius:14px;position:relative;overflow:hidden;transition:all .25s}
-.role-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(59,130,246,.16),transparent 48%);opacity:.75;pointer-events:none}
-.role-card:hover{transform:translateY(-4px);border-color:var(--accent2);box-shadow:0 12px 28px rgba(0,0,0,.3)}
-.role-title{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
-.role-chip{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.32);padding:3px 8px;border-radius:999px}
-.role-sub{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px}
-.role-list{list-style:none;display:flex;flex-direction:column;gap:8px}
-.role-list li{font-size:12px;color:var(--text2);display:flex;gap:8px}
-.role-list li::before{content:'•';color:var(--accent2)}
-
 /* ── How it works ── */
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;position:relative}
 .steps::before{content:'';position:absolute;top:36px;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--border),var(--border),transparent);z-index:0}
@@ -225,14 +213,14 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
   .hero-visual{display:none}
   h1{font-size:38px}
   .section-title{font-size:30px}
-  .features-grid,.role-grid,.steps,.pricing-grid,.verticals-grid,.trust-grid{grid-template-columns:1fr}
+  .features-grid,.steps,.pricing-grid,.verticals-grid,.trust-grid{grid-template-columns:1fr}
   .steps::before{display:none}
   .nav-links{display:none}
   .hero-proof{gap:20px}
   .cta-title{font-size:32px}
 }
 @media(min-width:901px) and (max-width:1100px){
-  .features-grid,.role-grid,.pricing-grid,.verticals-grid{grid-template-columns:repeat(2,1fr)}
+  .features-grid,.pricing-grid,.verticals-grid{grid-template-columns:repeat(2,1fr)}
   .steps{grid-template-columns:repeat(2,1fr)}
   .trust-grid{grid-template-columns:repeat(2,1fr)}
 }
@@ -250,7 +238,7 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
       <a href="#features">Features</a>
       <a href="#how">How It Works</a>
       <a href="#pricing">Pricing</a>
-      <a href="#leaders">Leadership Teams</a>
+      <a href="#verticals">Who It's For</a>
       <a href="/app/" class="nav-cta">Start Free Trial →</a>
     </div>
   </div>
@@ -265,10 +253,10 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
           60-day free trial · No credit card required
         </div>
         <h1 class="anim-up d1">
-          One command center<br/>for your <em>CEO, CFO,</em><br/>and COO team.
+          Run every<br/>business unit<br/>from <em>one screen.</em>
         </h1>
         <p class="hero-sub anim-up d2">
-          Taskora gives leadership one shared operating picture: execution health for the CEO, cost/risk visibility for the CFO, and delivery control for the COO — all in one modern workspace.
+          Taskora is the accountability operating system for CEOs managing multiple business units. See what needs your attention in 60 seconds — not 60 minutes of status calls.
         </p>
         <div class="hero-actions anim-up d3">
           <a href="/app/" class="btn-primary">Start free trial <span>→</span></a>
@@ -276,16 +264,16 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
         </div>
         <div class="hero-proof anim-up d4">
           <div class="hero-proof-item">
-            <strong><span class="metric" data-target="60" data-suffix="s">60</span></strong>
+            <strong>60s</strong>
             <span>Morning review</span>
           </div>
           <div class="hero-proof-item">
-            <strong><span class="metric" data-target="12">12</span></strong>
+            <strong>12</strong>
             <span>Signal intelligence</span>
           </div>
           <div class="hero-proof-item">
-            <strong><span class="metric" data-target="3">3</span></strong>
-            <span>Leadership lenses</span>
+            <strong>3</strong>
+            <span>Delivery channels</span>
           </div>
         </div>
       </div>
@@ -383,8 +371,8 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
   <div class="container">
     <div class="section-head">
       <div class="section-label">Features</div>
-      <div class="section-title">Not project management.<br/>Executive <em class="serif">decision intelligence.</em></div>
-      <p class="section-sub">Taskora sits between leadership and execution. Your teams do the work; CEO, CFO, and COO see the signals instantly.</p>
+      <div class="section-title">Not project management.<br/>Executive <em class="serif">accountability.</em></div>
+      <p class="section-sub">Taskora sits between the CEO and their organisation. Your team does the work. You see the signals.</p>
     </div>
     <div class="features-grid">
       <div class="feature-card">
@@ -432,46 +420,6 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
         <h3>Initiative Templates</h3>
         <p>Save your initiative structure as a template with milestones and tasks. Apply it to new projects in one click. Perfect for repeatable playbooks.</p>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── LEADERSHIP COCKPIT ── -->
-<section class="section" id="leaders" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Leadership Cockpit</div>
-      <div class="section-title">Purpose-built views for <em class="serif">CEO, CFO, and COO.</em></div>
-      <p class="section-sub">Every leader gets the same source of truth, with role-specific signals and alerts that drive faster decisions.</p>
-    </div>
-    <div class="role-grid">
-      <article class="role-card">
-        <div class="role-title">👑 CEO <span class="role-chip">Executive View</span></div>
-        <p class="role-sub">Get portfolio-level confidence in minutes, not in long status calls.</p>
-        <ul class="role-list">
-          <li>Cross-BU health score and escalation map.</li>
-          <li>Top risks and blockers needing immediate intervention.</li>
-          <li>Weekly direction summary for leadership standups.</li>
-        </ul>
-      </article>
-      <article class="role-card">
-        <div class="role-title">💹 CFO <span class="role-chip">Financial Control</span></div>
-        <p class="role-sub">Tie execution directly to budgets, cash impact, and forecast confidence.</p>
-        <ul class="role-list">
-          <li>Budget vs plan alerts by business unit.</li>
-          <li>Delay-to-cost visibility for critical initiatives.</li>
-          <li>Board-ready monthly performance snapshots.</li>
-        </ul>
-      </article>
-      <article class="role-card">
-        <div class="role-title">⚙️ COO <span class="role-chip">Delivery Control</span></div>
-        <p class="role-sub">Run operations with precision across teams, locations, and dependencies.</p>
-        <ul class="role-list">
-          <li>Dependency bottleneck radar and SLA breach tracking.</li>
-          <li>Recurring meeting and execution discipline checks.</li>
-          <li>Owner-level accountability and action cadence.</li>
-        </ul>
-      </article>
     </div>
   </div>
 </section>
@@ -539,7 +487,7 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
       <div class="price-card featured">
         <div class="price-name">Growth</div>
         <div class="price-amount"><span class="dollar">$149</span><span class="period">/month</span></div>
-        <div class="price-desc">For CEO, CFO, and COO teams running multiple divisions</div>
+        <div class="price-desc">For CEOs running multiple divisions</div>
         <ul class="price-features">
           <li>Up to 8 business units</li>
           <li>25 team members</li>
@@ -578,8 +526,7 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
   <div class="container">
     <div class="section-head">
       <div class="section-label">Who It's For</div>
-      <div class="section-title">Built for leaders running <em class="serif">more than one thing.</em></div>
-      <p class="section-sub">Taskora is ideal when leadership needs one operational truth across entities, locations, and execution teams.</p>
+      <div class="section-title">Built for CEOs who run <em class="serif">more than one thing.</em></div>
     </div>
     <div class="verticals-grid">
       <div class="vertical-card">
@@ -638,8 +585,8 @@ footer{padding:40px 0;border-top:1px solid var(--border)}
   <div class="container">
     <div class="cta-box">
       <div class="section-label">Get Started</div>
-      <div class="cta-title">Align CEO, CFO & COO<br/>with <em class="serif">one operating rhythm.</em></div>
-      <p class="cta-sub">Launch your 60-day free trial. No credit card. Set up in 10 minutes and start running finance, operations, and execution from one command center.</p>
+      <div class="cta-title">Replace your status calls<br/>with <em class="serif">accountability signals.</em></div>
+      <p class="cta-sub">60-day free trial. No credit card. Set up in 10 minutes. See your entire organisation from one screen by tomorrow morning.</p>
       <a href="/app/" class="btn-primary" style="font-size:16px;padding:16px 40px">Start your free trial →</a>
     </div>
   </div>
@@ -677,32 +624,10 @@ const observer = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.15 });
 
-document.querySelectorAll('.feature-card, .role-card, .problem-item, .step, .price-card, .vertical-card, .trust-item').forEach(el => {
+document.querySelectorAll('.feature-card, .problem-item, .step, .price-card, .vertical-card, .trust-item').forEach(el => {
   el.style.opacity = '0';
   observer.observe(el);
 });
-
-// Animated hero metrics
-const metricObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (!entry.isIntersecting) return;
-    const el = entry.target;
-    const target = Number(el.dataset.target || 0);
-    const suffix = el.dataset.suffix || '';
-    const duration = 900;
-    const start = performance.now();
-    const tick = (t) => {
-      const p = Math.min((t - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = `${Math.round(target * eased)}${suffix}`;
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    metricObserver.unobserve(el);
-  });
-}, { threshold: 0.7 });
-
-document.querySelectorAll('.metric').forEach((el) => metricObserver.observe(el));
 </script>
 </body>
 </html>
