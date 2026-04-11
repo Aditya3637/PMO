@@ -2,244 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Taskora — Executive Control Center for CEO, CFO & COO</title>
-<meta name="description" content="The executive operating system for CEO, CFO, and COO teams. Get financial, operational, and delivery visibility in 60 seconds."/>
-<meta property="og:title" content="Taskora — Executive Operating System for CEO, CFO & COO"/>
-<meta property="og:description" content="Run every business unit from one screen. Replace status calls with accountability signals."/>
-<meta property="og:type" content="website"/>
-<meta property="og:url" content="https://taskora.deftai.in"/>
-<meta name="twitter:card" content="summary_large_image"/>
-<link rel="canonical" href="https://taskora.deftai.in"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Taskora"/>
+<meta name="theme-color" content="#0f0f1a"/>
+<link rel="manifest" href="manifest.json"/>
+<title>Taskora — Executive Operating System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
+/* ════════════════════════════════════════════════════
+   TASKORA — ENTERPRISE DESIGN SYSTEM
+   Light-first · Salesforce/Jira structure
+   Charcoal accent · Neutral palette
+   ════════════════════════════════════════════════════ */
+
+/* ── LIGHT MODE (default) ──────────────────────────── */
 :root {
-  --bg: #09090B;
-  --surface: #18181B;
-  --surface2: #27272A;
-  --border: #3F3F46;
-  --border2: #52525B;
-  --text: #FAFAFA;
-  --text2: #A1A1AA;
-  --text3: #71717A;
-  --accent: #2563EB;
-  --accent2: #3B82F6;
-  --accent-glow: rgba(37,99,235,.15);
-  --green: #10B981;
-  --amber: #F59E0B;
-  --rose: #F43F5E;
-  --radius: 12px;
-  --max-w: 1120px;
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
-::selection{background:var(--accent);color:#fff}
-a{color:inherit;text-decoration:none}
-
-/* ── Grain overlay ── */
-body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
-  background-repeat:repeat;opacity:.5}
-
-/* ── Utility ── */
-.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
-.serif{font-family:'Instrument Serif',Georgia,serif}
-.accent{color:var(--accent2)}
-.green{color:var(--green)}
-.amber{color:var(--amber)}
-.rose{color:var(--rose)}
-
-/* ── Animations ── */
-@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@keyframes pulse-ring{0%{transform:scale(.95);opacity:1}100%{transform:scale(1.3);opacity:0}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes slideLeft{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
-
-.anim-up{animation:fadeUp .7s cubic-bezier(.16,1,.3,1) both}
-.anim-in{animation:fadeIn .6s ease both}
-.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}
-.d4{animation-delay:.4s}.d5{animation-delay:.5s}.d6{animation-delay:.6s}
-
-/* ── Nav ── */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:all .3s}
-nav.scrolled{background:rgba(9,9,11,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
-.nav-inner{display:flex;align-items:center;justify-content:space-between;max-width:var(--max-w);margin:0 auto;padding:0 24px}
-.nav-logo{font-size:20px;font-weight:700;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
-.nav-logo span{background:var(--accent);width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
-.nav-links{display:flex;align-items:center;gap:28px}
-.nav-links a{font-size:14px;color:#CBD5E1;font-weight:600;transition:color .2s,opacity .2s;opacity:.95}
-.nav-links a:hover{color:#fff;opacity:1}
-.nav-links .nav-cta{
-  padding:9px 22px;background:linear-gradient(135deg,#2563EB,#3B82F6);color:#fff;border-radius:8px;
-  font-size:14px;font-weight:700;border:1px solid rgba(147,197,253,.35);cursor:pointer;transition:all .2s;
-  box-shadow:0 8px 22px rgba(37,99,235,.35);opacity:1
-}
-.nav-links .nav-cta:hover{background:linear-gradient(135deg,#3B82F6,#60A5FA);transform:translateY(-1px);box-shadow:0 10px 26px rgba(37,99,235,.45);color:#fff}
-
-/* ── Hero ── */
-.hero{min-height:100vh;display:flex;align-items:center;position:relative;padding:120px 0 80px;overflow:hidden}
-.hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%);pointer-events:none}
-.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
-.hero-content{position:relative;z-index:2}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;background:var(--accent-glow);border:1px solid rgba(37,99,235,.25);border-radius:99px;font-size:13px;color:var(--accent2);font-weight:500;margin-bottom:28px}
-.hero-badge::before{content:'';width:6px;height:6px;background:var(--accent2);border-radius:50%;animation:pulse-ring 2s infinite}
-h1{font-size:52px;line-height:1.08;font-weight:800;letter-spacing:-.04em;margin-bottom:24px}
-h1 em{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;color:var(--accent2)}
-.hero-sub{font-size:18px;color:var(--text2);line-height:1.7;margin-bottom:36px;max-width:480px}
-.hero-actions{display:flex;gap:12px;align-items:center;margin-bottom:40px}
-.btn-primary{padding:14px 32px;background:linear-gradient(135deg,#2563EB,#3B82F6);color:#fff;border-radius:10px;font-size:15px;font-weight:700;border:1px solid rgba(147,197,253,.35);cursor:pointer;transition:all .25s;font-family:inherit;display:inline-flex;align-items:center;gap:8px;box-shadow:0 10px 24px rgba(37,99,235,.28)}
-.btn-primary:hover{background:linear-gradient(135deg,#3B82F6,#60A5FA);transform:translateY(-2px);box-shadow:0 12px 32px rgba(37,99,235,.42)}
-.btn-ghost{padding:14px 28px;background:rgba(24,24,27,.75);color:#E2E8F0;border:1px solid #475569;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
-.btn-ghost:hover{border-color:#64748B;background:#1F2937;color:#fff}
-.hero-proof{display:flex;gap:32px}
-.hero-proof-item{display:flex;flex-direction:column}
-.hero-proof-item strong{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
-.hero-proof-item span{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
-
-/* ── Hero Visual ── */
-.hero-visual{position:relative;perspective:1200px}
-.dash-mock{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;transform:rotateY(-4deg) rotateX(2deg);box-shadow:0 24px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;animation:float 6s ease-in-out infinite;position:relative;overflow:hidden}
-.dash-mock::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent)}
-.mock-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
-.mock-title{font-size:14px;font-weight:700;letter-spacing:-.01em}
-.mock-date{font-size:11px;color:var(--text3)}
-.mock-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
-.mock-stat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
-.mock-stat-n{font-size:22px;font-weight:800;letter-spacing:-.02em}
-.mock-stat-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-.mock-cards{display:flex;flex-direction:column;gap:8px}
-.mock-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--green)}
-.mock-card.warn{border-left-color:var(--amber)}
-.mock-card.alert{border-left-color:var(--rose)}
-.mock-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;font-size:10px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center}
-.mock-card-body{flex:1;min-width:0}
-.mock-card-name{font-size:12px;font-weight:600}
-.mock-card-sub{font-size:10px;color:var(--text3);margin-top:1px}
-.mock-badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;flex-shrink:0;white-space:nowrap}
-
-/* ── Section ── */
-.section{padding:100px 0}
-.section-label{font-size:12px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
-.section-title{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-bottom:16px}
-.section-sub{font-size:17px;color:var(--text2);line-height:1.7;max-width:560px}
-.section-head{text-align:center;margin-bottom:56px}
-.section-head .section-sub{margin:0 auto}
-
-/* ── Problem ── */
-.problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-.problem-list{display:flex;flex-direction:column;gap:20px}
-.problem-item{display:flex;gap:16px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .2s}
-.problem-item:hover{border-color:var(--border2)}
-.problem-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.problem-item h4{font-size:15px;font-weight:600;margin-bottom:4px}
-.problem-item p{font-size:13px;color:var(--text2);line-height:1.6}
-
-/* ── Features ── */
-.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.feature-card{padding:28px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:all .25s;position:relative;overflow:hidden}
-.feature-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
-.feature-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:0;transition:opacity .2s}
-.feature-card:hover::after{opacity:1}
-.feature-icon{font-size:28px;margin-bottom:16px;display:block}
-.feature-card h3{font-size:16px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
-.feature-card p{font-size:13px;color:var(--text2);line-height:1.7}
-
-/* ── Leadership cockpit ── */
-.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.role-card{padding:26px 22px;background:linear-gradient(180deg,rgba(39,39,42,.95),rgba(24,24,27,.95));border:1px solid var(--border);border-radius:14px;position:relative;overflow:hidden;transition:all .25s}
-.role-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(59,130,246,.16),transparent 48%);opacity:.75;pointer-events:none}
-.role-card:hover{transform:translateY(-4px);border-color:var(--accent2);box-shadow:0 12px 28px rgba(0,0,0,.3)}
-.role-title{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
-.role-chip{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent2);background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.32);padding:3px 8px;border-radius:999px}
-.role-sub{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px}
-.role-list{list-style:none;display:flex;flex-direction:column;gap:8px}
-.role-list li{font-size:12px;color:var(--text2);display:flex;gap:8px}
-.role-list li::before{content:'•';color:var(--accent2)}
-
-/* ── How it works ── */
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;position:relative}
-.steps::before{content:'';position:absolute;top:36px;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--border),var(--border),transparent);z-index:0}
-.step{text-align:center;position:relative;z-index:1}
-.step-num{width:56px;height:56px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--accent2);margin:0 auto 20px}
-.step h3{font-size:15px;font-weight:700;margin-bottom:6px}
-.step p{font-size:13px;color:var(--text2);line-height:1.6}
-
-/* ── Pricing ── */
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
-.price-card{padding:32px 28px;background:var(--surface);border:1px solid var(--border);border-radius:16px;position:relative;transition:all .25s}
-.price-card:hover{border-color:var(--border2);transform:translateY(-2px)}
-.price-card.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(37,99,235,.06),var(--surface));box-shadow:0 0 60px rgba(37,99,235,.08)}
-.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:4px 14px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;border-radius:99px;letter-spacing:.08em}
-.price-name{font-size:14px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
-.price-amount{display:flex;align-items:baseline;gap:4px;margin-bottom:4px}
-.price-amount .dollar{font-size:42px;font-weight:800;letter-spacing:-.03em}
-.price-amount .period{font-size:14px;color:var(--text3)}
-.price-desc{font-size:13px;color:var(--text3);margin-bottom:24px}
-.price-features{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
-.price-features li{font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:8px}
-.price-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
-.price-btn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .2s}
-.price-btn-primary{background:var(--accent);color:#fff}
-.price-btn-primary:hover{background:var(--accent2);box-shadow:0 4px 20px rgba(37,99,235,.3)}
-.price-btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
-.price-btn-ghost:hover{border-color:var(--border2);background:var(--surface2)}
-.trial-note{text-align:center;margin-top:20px;font-size:13px;color:var(--text3)}
-.annual-toggle{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:32px}
-.annual-toggle span{font-size:14px;color:var(--text2)}
-.annual-toggle .save{font-size:11px;color:var(--green);font-weight:600;background:rgba(16,185,129,.12);padding:2px 8px;border-radius:4px}
-
-/* ── Verticals ── */
-.verticals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.vertical-card{padding:28px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
-.vertical-card:hover{border-color:var(--border2)}
-.vertical-card h3{font-size:16px;font-weight:700;margin-bottom:8px}
-.vertical-card p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px}
-.vertical-tag{font-size:11px;color:var(--accent2);font-weight:600}
-
-/* ── Trust ── */
-.trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
-.trust-item{text-align:center;padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
-.trust-item .icon{font-size:28px;margin-bottom:12px;display:block}
-.trust-item h4{font-size:14px;font-weight:600;margin-bottom:4px}
-.trust-item p{font-size:12px;color:var(--text3);line-height:1.5}
-
-/* ── CTA ── */
-.cta-section{padding:100px 0;text-align:center;position:relative}
-.cta-section::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(circle,rgba(37,99,235,.06) 0%,transparent 70%);pointer-events:none}
-.cta-box{max-width:640px;margin:0 auto;position:relative;z-index:1}
-.cta-title{font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-bottom:16px}
-.cta-sub{font-size:17px;color:var(--text2);margin-bottom:32px}
-
-/* ── Footer ── */
-footer{padding:40px 0;border-top:1px solid var(--border)}
-.footer-inner{display:flex;justify-content:space-between;align-items:center}
-.footer-brand{font-size:14px;color:var(--text3)}
-.footer-links{display:flex;gap:24px}
-.footer-links a{font-size:13px;color:var(--text3);transition:color .2s}
-.footer-links a:hover{color:var(--text)}
-
-/* ── Responsive ── */
-@media(max-width:900px){
-  .hero-grid,.problem-grid{grid-template-columns:1fr}
-  .hero-visual{display:none}
-  h1{font-size:38px}
-  .section-title{font-size:30px}
-  .features-grid,.role-grid,.steps,.pricing-grid,.verticals-grid,.trust-grid{grid-template-columns:1fr}
-  .steps::before{display:none}
-  .nav-links{display:none}
-  .hero-proof{gap:20px}
-  .cta-title{font-size:32px}
-}
-@media(min-width:901px) and (max-width:1100px){
-  .features-grid,.role-grid,.pricing-grid,.verticals-grid{grid-template-columns:repeat(2,1fr)}
-  .steps{grid-template-columns:repeat(2,1fr)}
-  .trust-grid{grid-template-columns:repeat(2,1fr)}
-}
   /* Brand accent — controlled blue, not purple */
   --ind:    #1D4ED8;
   --ind-d:  #1E40AF;
@@ -614,55 +393,6 @@ html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);borde
 </head>
 <body>
 
-<!-- ── NAV ── -->
-<nav id="nav">
-  <div class="nav-inner">
-    <div class="nav-logo">
-      <span>T</span> Taskora
-    </div>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#how">How It Works</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#leaders">Leadership Teams</a>
-      <a href="/app/" class="nav-cta">Start Free Trial →</a>
-    </div>
-  </div>
-</nav>
-
-<!-- ── HERO ── -->
-<section class="hero">
-  <div class="container">
-    <div class="hero-grid">
-      <div class="hero-content">
-        <div class="hero-badge anim-up">
-          60-day free trial · No credit card required
-        </div>
-        <h1 class="anim-up d1">
-          One command center<br/>for your <em>CEO, CFO,</em><br/>and COO team.
-        </h1>
-        <p class="hero-sub anim-up d2">
-          Taskora gives leadership one shared operating picture: execution health for the CEO, cost/risk visibility for the CFO, and delivery control for the COO — all in one modern workspace.
-        </p>
-        <div class="hero-actions anim-up d3">
-          <a href="/app/" class="btn-primary">Start free trial <span>→</span></a>
-          <a href="#how" class="btn-ghost">See how it works</a>
-        </div>
-        <div class="hero-proof anim-up d4">
-          <div class="hero-proof-item">
-            <strong><span class="metric" data-target="60" data-suffix="s">60</span></strong>
-            <span>Morning review</span>
-          </div>
-          <div class="hero-proof-item">
-            <strong><span class="metric" data-target="12">12</span></strong>
-            <span>Signal intelligence</span>
-          </div>
-          <div class="hero-proof-item">
-            <strong><span class="metric" data-target="3">3</span></strong>
-            <span>Leadership lenses</span>
-          </div>
-        </div>
-      </div>
 <div id="ls"><div class="spin"></div><div class="lb">Taskora</div><div class="ls-sub">Executive Operating System</div></div>
 
 <!-- Update banner — shown when a new SW version is waiting -->
@@ -687,286 +417,29 @@ html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);borde
     </button>
     <div class="sso-divider">or sign in with email</div>
 
-      <div class="hero-visual anim-up d3">
-        <div class="dash-mock">
-          <div class="mock-header">
-            <div class="mock-title">Executive Dashboard</div>
-            <div class="mock-date">April 11, 2026</div>
-          </div>
-          <div class="mock-stats">
-            <div class="mock-stat">
-              <div class="mock-stat-n green">5</div>
-              <div class="mock-stat-l">On Track</div>
-            </div>
-            <div class="mock-stat">
-              <div class="mock-stat-n amber">2</div>
-              <div class="mock-stat-l">At Risk</div>
-            </div>
-            <div class="mock-stat">
-              <div class="mock-stat-n rose">1</div>
-              <div class="mock-stat-l">Delayed</div>
-            </div>
-          </div>
-          <div class="mock-cards">
-            <div class="mock-card">
-              <div class="mock-av" style="background:#059669">RK</div>
-              <div class="mock-card-body">
-                <div class="mock-card-name">Rajesh Kumar — Operations</div>
-                <div class="mock-card-sub">4 initiatives · 2 due this week</div>
-              </div>
-              <div class="mock-badge" style="background:rgba(16,185,129,.15);color:#10B981">On Track</div>
-            </div>
-            <div class="mock-card warn">
-              <div class="mock-av" style="background:#D97706">SP</div>
-              <div class="mock-card-body">
-                <div class="mock-card-name">Sarah Park — Expansion</div>
-                <div class="mock-card-sub">3 initiatives · 1 blocked</div>
-              </div>
-              <div class="mock-badge" style="background:rgba(245,158,11,.15);color:#F59E0B">At Risk</div>
-            </div>
-            <div class="mock-card alert">
-              <div class="mock-av" style="background:#DC2626">MJ</div>
-              <div class="mock-card-body">
-                <div class="mock-card-name">Mike Johnson — Logistics</div>
-                <div class="mock-card-sub">2 initiatives · 5 overdue</div>
-              </div>
-              <div class="mock-badge" style="background:rgba(244,63,94,.15);color:#F43F5E">⚠ Delayed</div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="auth-tabs">
+      <button id="at-si" class="auth-tab on" onclick="swAT('si')">Sign in</button>
+      <button id="at-su" class="auth-tab" onclick="swAT('su')">Create account</button>
+    </div>
+    <div id="amsg"></div>
+    <div id="form-si">
+      <input class="gi" id="si-em" type="email" placeholder="Email address" autocomplete="email"
+        onkeydown="if(event.key==='Enter')document.getElementById('si-pw').focus()"/>
+      <input class="gi" id="si-pw" type="password" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doSI()"/>
+      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSI()">Sign in →</button>
+    </div>
+    <div id="form-su" style="display:none">
+      <input class="gi" id="su-em" type="email" placeholder="Email address" autocomplete="email"
+        onkeydown="if(event.key==='Enter')document.getElementById('su-pw').focus()"/>
+      <input class="gi" id="su-pw" type="password" placeholder="Password (min 8 characters)" autocomplete="new-password"
+        onkeydown="if(event.key==='Enter')doSU()"/>
+      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSU()">Create account →</button>
+    </div>
+    <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--txt3)">
+      By continuing, you agree to our <a href="/privacy" style="color:var(--ind-l)">Privacy Policy</a> and <a href="/terms" style="color:var(--ind-l)">Terms</a>.
     </div>
   </div>
-</section>
-
-<!-- ── PROBLEM ── -->
-<section class="section" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="container">
-    <div class="problem-grid">
-      <div>
-        <div class="section-label">The Problem</div>
-        <div class="section-title">You're running 5 divisions.<br/>You have <em class="serif" style="color:var(--rose)">zero</em> single view.</div>
-        <p class="section-sub" style="margin-top:16px">Your VPs send updates in whatever format they prefer — PowerPoints, spreadsheets, Slack threads, or verbal briefings in meetings. You piece together the truth from fragments. Problems surface late. Decisions wait.</p>
-      </div>
-      <div class="problem-list">
-        <div class="problem-item">
-          <div class="problem-icon" style="background:rgba(244,63,94,.1);color:var(--rose)">⏱</div>
-          <div>
-            <h4>6–10 hours per week in status meetings</h4>
-            <p>Meetings that exist because there's no shared system. Everyone updates verbally. Nothing is tracked consistently.</p>
-          </div>
-        </div>
-        <div class="problem-item">
-          <div class="problem-icon" style="background:rgba(245,158,11,.1);color:var(--amber)">🔍</div>
-          <div>
-            <h4>Problems discovered after they've escalated</h4>
-            <p>A blocked initiative in one division doesn't surface until it's a crisis. The CEO hears about it too late to intervene cheaply.</p>
-          </div>
-        </div>
-        <div class="problem-item">
-          <div class="problem-icon" style="background:rgba(37,99,235,.1);color:var(--accent2)">📊</div>
-          <div>
-            <h4>Inconsistent information formats</h4>
-            <p>Each division uses different tools, different templates, different definitions of "on track." Apples-to-oranges comparison every week.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── FEATURES ── -->
-<section class="section" id="features">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Features</div>
-      <div class="section-title">Not project management.<br/>Executive <em class="serif">decision intelligence.</em></div>
-      <p class="section-sub">Taskora sits between leadership and execution. Your teams do the work; CEO, CFO, and COO see the signals instantly.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <span class="feature-icon">⌂</span>
-        <h3>Executive Dashboard</h3>
-        <p>Every business unit lead on one screen with green/amber/red accountability signals. Read it in 60 seconds with your morning coffee.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">📤</span>
-        <h3>Daily Briefing</h3>
-        <p>12-signal intelligence engine detects overdue work, blocked initiatives, dependency chains, and unassigned tasks. Delivered via email, Slack, or WhatsApp.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">📊</span>
-        <h3>Gantt &amp; Timeline</h3>
-        <p>Full-page portfolio Gantt view showing every initiative across every business unit with milestones, today-line, and health colours.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🔄</span>
-        <h3>Recurring Meeting Tracker</h3>
-        <p>Track whether mandatory recurring meetings are actually happening. No other tool does this. Overdue meetings surface on the dashboard.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">📈</span>
-        <h3>Board Pack Reports</h3>
-        <p>Monthly and yearly stakeholder comparison, performance analysis, CSV export, and PDF board pack generation. Ready for your board meeting.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🏢</span>
-        <h3>Multi-Location Support</h3>
-        <p>Franchise operators and multi-site businesses get per-location tracking with go-live dates, site tasks, and secondary responsibility holders.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🚨</span>
-        <h3>Escalation Engine</h3>
-        <p>Tasks overdue more than 3 days, blocked work, and delayed initiatives are automatically flagged for executive attention. Problems surface before they escalate.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">🔑</span>
-        <h3>Role-Based Access</h3>
-        <p>Three permission tiers: Admin sees everything. BU Lead sees their division. Team Members see their own tasks. Invite via email, assign roles, enforce limits.</p>
-      </div>
-      <div class="feature-card">
-        <span class="feature-icon">📋</span>
-        <h3>Initiative Templates</h3>
-        <p>Save your initiative structure as a template with milestones and tasks. Apply it to new projects in one click. Perfect for repeatable playbooks.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── LEADERSHIP COCKPIT ── -->
-<section class="section" id="leaders" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Leadership Cockpit</div>
-      <div class="section-title">Purpose-built views for <em class="serif">CEO, CFO, and COO.</em></div>
-      <p class="section-sub">Every leader gets the same source of truth, with role-specific signals and alerts that drive faster decisions.</p>
-    </div>
-    <div class="role-grid">
-      <article class="role-card">
-        <div class="role-title">👑 CEO <span class="role-chip">Executive View</span></div>
-        <p class="role-sub">Get portfolio-level confidence in minutes, not in long status calls.</p>
-        <ul class="role-list">
-          <li>Cross-BU health score and escalation map.</li>
-          <li>Top risks and blockers needing immediate intervention.</li>
-          <li>Weekly direction summary for leadership standups.</li>
-        </ul>
-      </article>
-      <article class="role-card">
-        <div class="role-title">💹 CFO <span class="role-chip">Financial Control</span></div>
-        <p class="role-sub">Tie execution directly to budgets, cash impact, and forecast confidence.</p>
-        <ul class="role-list">
-          <li>Budget vs plan alerts by business unit.</li>
-          <li>Delay-to-cost visibility for critical initiatives.</li>
-          <li>Board-ready monthly performance snapshots.</li>
-        </ul>
-      </article>
-      <article class="role-card">
-        <div class="role-title">⚙️ COO <span class="role-chip">Delivery Control</span></div>
-        <p class="role-sub">Run operations with precision across teams, locations, and dependencies.</p>
-        <ul class="role-list">
-          <li>Dependency bottleneck radar and SLA breach tracking.</li>
-          <li>Recurring meeting and execution discipline checks.</li>
-          <li>Owner-level accountability and action cadence.</li>
-        </ul>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ── HOW IT WORKS ── -->
-<section class="section" id="how" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">How It Works</div>
-      <div class="section-title">From signup to <em class="serif">accountability</em> in 10 minutes.</div>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Set up your org</h3>
-        <p>Name your business units. Add your division leads. Define the structure.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>Create initiatives</h3>
-        <p>Add strategic initiatives with milestones, tasks, due dates, and owners.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Team executes</h3>
-        <p>Your BU leads and their teams update task statuses as they work. You don't chase anyone.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <h3>You see signals</h3>
-        <p>Open your dashboard each morning. Green, amber, red. Act only where it matters.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── PRICING ── -->
-<section class="section" id="pricing">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Pricing</div>
-      <div class="section-title">Priced by business unit,<br/>not <em class="serif">headcount.</em></div>
-      <p class="section-sub">You think in divisions, not seats. So does your invoice. Every plan includes a 60-day free trial — no credit card required.</p>
-    </div>
-    <div class="annual-toggle">
-      <span>Monthly</span>
-      <span style="color:var(--text3)">|</span>
-      <span>Annual</span>
-      <span class="save">Save 17%</span>
-    </div>
-    <div class="pricing-grid">
-      <div class="price-card">
-        <div class="price-name">Free</div>
-        <div class="price-amount"><span class="dollar">$0</span><span class="period">/forever</span></div>
-        <div class="price-desc">For small operators getting started</div>
-        <ul class="price-features">
-          <li>Up to 2 business units</li>
-          <li>3 team members</li>
-          <li>Executive Dashboard</li>
-          <li>In-app Daily Briefing</li>
-          <li>Basic reports</li>
-        </ul>
-        <button class="price-btn price-btn-ghost" onclick="window.location.href='/app/'">Get started free</button>
-      </div>
-      <div class="price-card featured">
-        <div class="price-name">Growth</div>
-        <div class="price-amount"><span class="dollar">$149</span><span class="period">/month</span></div>
-        <div class="price-desc">For CEO, CFO, and COO teams running multiple divisions</div>
-        <ul class="price-features">
-          <li>Up to 8 business units</li>
-          <li>25 team members</li>
-          <li>Email + Slack briefing</li>
-          <li>Board pack PDF export</li>
-          <li>Decision log</li>
-          <li>Multi-location support</li>
-          <li>Gantt &amp; timeline views</li>
-          <li>MFA / 2FA</li>
-        </ul>
-        <button class="price-btn price-btn-primary" onclick="window.location.href='/app/'">Start 60-day trial →</button>
-      </div>
-      <div class="price-card">
-        <div class="price-name">Scale</div>
-        <div class="price-amount"><span class="dollar">$399</span><span class="period">/month</span></div>
-        <div class="price-desc">For large portfolios &amp; holding companies</div>
-        <ul class="price-features">
-          <li>Unlimited business units</li>
-          <li>100 team members</li>
-          <li>Everything in Growth</li>
-          <li>Google SSO</li>
-          <li>Priority support</li>
-          <li>Custom briefing cadence</li>
-          <li>API access</li>
-          <li>White-glove onboarding</li>
-        </ul>
-        <button class="price-btn price-btn-ghost" onclick="window.location.href='/app/'">Start 60-day trial →</button>
-      </div>
-    </div>
-    <div class="trial-note">All paid plans include a 60-day free trial. No credit card required. Cancel anytime.</div>
 </div>
 
 <!-- Onboarding Wizard Overlay -->
@@ -1030,134 +503,20 @@ html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);borde
       <button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>
     </div>
   </div>
-</section>
+</div>
 
-<!-- ── VERTICALS ── -->
-<section class="section" id="verticals" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Who It's For</div>
-      <div class="section-title">Built for leaders running <em class="serif">more than one thing.</em></div>
-      <p class="section-sub">Taskora is ideal when leadership needs one operational truth across entities, locations, and execution teams.</p>
+<div id="ov">
+  <div id="sh">
+    <div class="sh-hd"></div>
+    <div class="sh-row">
+      <div class="sh-ti" id="sh-ti"></div>
+      <button class="sh-cl" onclick="CS()">×</button>
     </div>
-    <div class="verticals-grid">
-      <div class="vertical-card">
-        <h3>🏦 PE Portfolio Operators</h3>
-        <p>Managing partner overseeing 3–6 portfolio companies. Need weekly accountability signals across each company. Board reporting is manual and slow — Taskora automates the view.</p>
-        <div class="vertical-tag">→ Board pack export + multi-entity dashboard</div>
-      </div>
-      <div class="vertical-card">
-        <h3>🏪 Franchise Operators</h3>
-        <p>Running 5–30 locations. Each location manager is accountable. No consistent visibility without visiting each site. The Locations module gives you every site on one screen.</p>
-        <div class="vertical-tag">→ Multi-location tracking + site-level tasks</div>
-      </div>
-      <div class="vertical-card">
-        <h3>⚖️ Multi-Office Professional Services</h3>
-        <p>Law firms, accounting practices, consulting firms with 3–10 offices. MD needs visibility across offices and client-facing teams without micromanaging each one.</p>
-        <div class="vertical-tag">→ BU-level accountability + role-based access</div>
-      </div>
-    </div>
+    <div class="sh-bod" id="sh-bd"></div>
   </div>
-</section>
-
-<!-- ── TRUST / SECURITY ── -->
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <div class="section-label">Trust &amp; Security</div>
-      <div class="section-title">Enterprise-grade from <em class="serif">day one.</em></div>
-    </div>
-    <div class="trust-grid">
-      <div class="trust-item">
-        <span class="icon">🔒</span>
-        <h4>Row-Level Security</h4>
-        <p>Supabase RLS ensures tenants can never access each other's data. Zero cross-tenant exposure.</p>
-      </div>
-      <div class="trust-item">
-        <span class="icon">🔐</span>
-        <h4>Encrypted at Rest</h4>
-        <p>All data encrypted with AES-256 at rest and TLS 1.3 in transit. Hosted on SOC 2 certified infrastructure.</p>
-      </div>
-      <div class="trust-item">
-        <span class="icon">🌍</span>
-        <h4>GDPR Compliant</h4>
-        <p>Data processing agreements available. Cookie notice and privacy policy built in. Right to erasure supported.</p>
-      </div>
-      <div class="trust-item">
-        <span class="icon">🔑</span>
-        <h4>MFA / 2FA</h4>
-        <p>TOTP-based two-factor authentication via Supabase Auth. Enforce MFA across your entire organisation.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── CTA ── -->
-<section class="cta-section">
-  <div class="container">
-    <div class="cta-box">
-      <div class="section-label">Get Started</div>
-      <div class="cta-title">Align CEO, CFO & COO<br/>with <em class="serif">one operating rhythm.</em></div>
-      <p class="cta-sub">Launch your 60-day free trial. No credit card. Set up in 10 minutes and start running finance, operations, and execution from one command center.</p>
-      <a href="/app/" class="btn-primary" style="font-size:16px;padding:16px 40px">Start your free trial →</a>
-    </div>
-  </div>
-</section>
-
-<!-- ── FOOTER ── -->
-<footer>
-  <div class="container">
-    <div class="footer-inner">
-      <div class="footer-brand">Taskora · A <a href="https://deftai.in" style="color:var(--accent2)">Deft AI</a> product · © 2026</div>
-      <div class="footer-links">
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
-        <a href="/security">Security</a>
-        <a href="mailto:hello@deftai.in">Contact</a>
-      </div>
-    </div>
-  </div>
-</footer>
+</div>
 
 <script>
-// Nav scroll effect
-const nav = document.getElementById('nav');
-window.addEventListener('scroll', () => {
-  nav.classList.toggle('scrolled', window.scrollY > 40);
-});
-
-// Simple scroll-triggered animations
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      e.target.style.animation = 'fadeUp .6s cubic-bezier(.16,1,.3,1) both';
-      observer.unobserve(e.target);
-    }
-  });
-}, { threshold: 0.15 });
-
-document.querySelectorAll('.feature-card, .role-card, .problem-item, .step, .price-card, .vertical-card, .trust-item').forEach(el => {
-  el.style.opacity = '0';
-  observer.observe(el);
-});
-
-// Animated hero metrics
-const metricObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    if (!entry.isIntersecting) return;
-    const el = entry.target;
-    const target = Number(el.dataset.target || 0);
-    const suffix = el.dataset.suffix || '';
-    const duration = 900;
-    const start = performance.now();
-    const tick = (t) => {
-      const p = Math.min((t - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = `${Math.round(target * eased)}${suffix}`;
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    metricObserver.unobserve(el);
 /* ── SUPABASE ── */
 const SB = supabase.createClient(
   'https://blvijiqrgddvparsnpnh.supabase.co',
@@ -1937,9 +1296,7 @@ function rPpl() {
     h += '<button class="mb dd" onclick="dPpl(\''+person.id+'\')">×</button>';
     h += '</div></div></div>';
   });
-}, { threshold: 0.7 });
 
-document.querySelectorAll('.metric').forEach((el) => metricObserver.observe(el));
   document.getElementById('tab-people').innerHTML = h;
 }
 
