@@ -649,6 +649,7 @@ async function doGoogleSSO() {
         ? (window.location.origin + window.location.pathname)
         : 'https://taskora.deftai.in'
     }
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
   if (error) amsg('Google sign-in failed: ' + error.message);
 }
