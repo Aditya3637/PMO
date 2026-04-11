@@ -1,7 +1,7 @@
 {
   "name": "Taskora",
   "short_name": "Taskora",
-  "description": "Project Intelligence Platform",
+  "description": "CEO operating system for multi-entity businesses",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
