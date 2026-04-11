@@ -215,10 +215,9 @@ td{padding:9px 13px;border-bottom:1px solid var(--bdr);font-size:13px}
 // TASKORA — COMPLETE WORKING IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-const SB = supabase.createClient(
-  'https://blvijiqrgddvparsnpnh.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsdmlqaXFyZ2RkdnBhcnNucG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3ODc4NTAsImV4cCI6MjA5MDM2Mzg1MH0.J9wB4a384TRLfISIQC35pn5no-Pp52iZoB8fBiEExj8'
-);
+const SB_URL = 'https://blvijiqrgddvparsnpnh.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsdmlqaXFyZ2RkdnBhcnNucG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3ODc4NTAsImV4cCI6MjA5MDM2Mzg1MH0.J9wB4a384TRLfISIQC35pn5no-Pp52iZoB8fBiEExj8';
+const SB = window.supabase?.createClient ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 
 let U = null, curTab = 'dash', MY_ROLE = 'super_admin', MY_PERSON_ID = null, CHAIRMAN_UID = null;
 let DB = { buildings:[], people:[], projects:[], milestones:[], tasks:[], pb:[], decisions:[], notifications:[] };
@@ -238,6 +237,20 @@ const val = id => document.getElementById(id)?.value || '';
 const bdg = (s) => `<span class="bd">${TS[s]?.l||s}</span>`;
 const hBdg = h => `<span class="bd ${HS[h]?.cls||'h-ns'}">${HS[h]?.l||'Not Started'}</span>`;
 const av = (n,c,sz=30) => `<div class="av" style="width:${sz}px;height:${sz}px;background:${c||'#6366f1'};font-size:${sz*.36}px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:600">${(n||'?').slice(0,2).toUpperCase()}</div>`;
+
+function hideLoader() {
+  const loader = document.getElementById('ls');
+  if(!loader) return;
+  loader.style.opacity = '0';
+  setTimeout(() => { loader.style.display = 'none'; }, 300);
+}
+
+function showAuthMessage(msg) {
+  const auth = document.getElementById('auth-scr');
+  if(auth) auth.style.display = 'flex';
+  const box = document.getElementById('amsg');
+  if(box) box.innerHTML = `<div class="amsg err">${esc(msg)}</div>`;
+}
 
 function showToast(msg, type) {
   const t = document.createElement('div');
@@ -910,15 +923,33 @@ async function showApp() {
 }
 
 async function boot() {
-  const {data:{session}} = await SB.auth.getSession();
-  document.getElementById('ls').style.opacity = '0';
-  setTimeout(() => document.getElementById('ls').style.display = 'none', 300);
-  if(session) { U = session.user; showApp(); }
-  else { document.getElementById('auth-scr').style.display = 'flex'; }
-  SB.auth.onAuthStateChange(async (ev, ses) => {
-    if(ses) { U = ses.user; showApp(); }
-    else { window.location.reload(); }
-  });
+  if(!SB) {
+    hideLoader();
+    showAuthMessage('Unable to load authentication service. Check your internet connection and refresh.');
+    return;
+  }
+
+  try {
+    const {data:{session}, error} = await Promise.race([
+      SB.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Authentication service timed out.')), 8000))
+    ]);
+
+    if(error) throw error;
+
+    hideLoader();
+    if(session) { U = session.user; await showApp(); }
+    else { document.getElementById('auth-scr').style.display = 'flex'; }
+
+    SB.auth.onAuthStateChange(async (ev, ses) => {
+      if(ses) { U = ses.user; await showApp(); }
+      else { window.location.reload(); }
+    });
+  } catch (err) {
+    console.error(err);
+    hideLoader();
+    showAuthMessage(err?.message || 'Unable to initialize login. Please refresh and try again.');
+  }
 }
 
 boot();

@@ -1,0 +1,40 @@
+name: Static checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check HTML syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          import subprocess, tempfile, os, sys
+
+          files = [Path('index.html'), Path('app/index.html')]
+          bad = False
+          for file in files:
+            html = file.read_text(encoding='utf-8')
+            scripts = '\n'.join(re.findall(r'<script>([\s\S]*?)</script>', html))
+            with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as tf:
+              tf.write(scripts)
+              name = tf.name
+            try:
+              result = subprocess.run(['node', '--check', name], capture_output=True, text=True)
+              if result.returncode != 0:
+                bad = True
+                print(f'::error file={file}::JavaScript syntax error')
+                print(result.stderr)
+            finally:
+              os.unlink(name)
+
+          if bad:
+            sys.exit(1)
+          print('HTML inline JavaScript syntax checks passed.')
+          PY

@@ -1,44 +1,23 @@
-# Taskora Web Entry + App Routing
+# Taskora Web Routing
 
-This repository now serves **both**:
+Taskora now opens the application directly:
 
-- `https://taskora.deftai.in` → public marketing/landing page
-- `https://taskora.deftai.in/app/` → full Taskora application
+- `/` → redirects to `/app/`
+- `/app/` → full Taskora application
 
-## What changed
+## Fixes in this update
 
-- Root `index.html` is the landing page (trial + product overview).
-- Full app moved to `app/index.html`.
-- Landing page CTAs now point to `/app/` so users can directly start using Taskora from the same domain.
-
-## DNS and publishing checklist (for `taskora.deftai.in`)
-
-1. Create DNS record for subdomain:
-   - Type: `CNAME`
-   - Host/Name: `taskora`
-   - Target: your hosting provider endpoint (for example, Vercel/Netlify/Cloudflare Pages target)
-2. Deploy this repository as a static site.
-3. Attach custom domain `taskora.deftai.in` in the hosting dashboard.
-4. Enable HTTPS/TLS (usually automatic on modern hosts).
-5. Verify:
-   - `https://taskora.deftai.in` opens landing page
-   - `https://taskora.deftai.in/app/` opens app login/dashboard
-
-## Trial flow expectation
-
-- Visitor lands on `taskora.deftai.in`, understands Taskora via landing content.
-- Clicking **Start Free Trial** routes to `/app/`.
-- User signs up and begins the 60-day trial in the full app.
+- Removed the landing page and restored direct app access from the root URL.
+- Hardened app boot/login initialization in `app/index.html` to avoid infinite loading spinner states.
+  - Handles missing Supabase script gracefully.
+  - Adds an auth initialization timeout guard.
+  - Shows actionable login error messages instead of leaving the loader spinning.
+- Kept GitHub Actions inline JavaScript syntax checks in `.github/workflows/static-checks.yml`.
 
 ## Local preview
-
-From repo root:
 
 ```bash
 python -m http.server 8080
 ```
 
-Then open:
-
-- `http://localhost:8080/` (landing)
-- `http://localhost:8080/app/` (application)
+Then open `http://localhost:8080/` (auto-redirects to app).
