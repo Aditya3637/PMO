@@ -1,436 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Taskora"/>
-<meta name="theme-color" content="#0f0f1a"/>
-<link rel="manifest" href="manifest.json"/>
-<title>Taskora — Executive Operating System</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<style>
-/* ════════════════════════════════════════════════════
-   TASKORA — ENTERPRISE DESIGN SYSTEM
-   Light-first · Salesforce/Jira structure
-   Charcoal accent · Neutral palette
-   ════════════════════════════════════════════════════ */
-
-/* ── LIGHT MODE (default) ──────────────────────────── */
-:root {
-  --ind:    #1D4ED8;
-  --ind-d:  #1E40AF;
-  --ind-l:  #2563EB;
-  --teal:   #0284C7;
-  --rose:   #DC2626;
-  --amb:    #D97706;
-  --grn:    #059669;
-  --bg:     #F1F5F9;
-  --glass:  #FFFFFF;
-  --glass2: #F8FAFC;
-  --glass3: #F1F5F9;
-  --bdr:    #E2E8F0;
-  --bdr2:   #CBD5E1;
-  --txt:    #0F172A;
-  --txt2:   #475569;
-  --txt3:   #94A3B8;
-  --r:      6px;
-  --r-sm:   5px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 8px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,.1), 0 4px 8px rgba(0,0,0,.06);
-  --sb-bg:  #FFFFFF;
-  --sb-bdr: #E2E8F0;
-  color-scheme: light;
-}
-
-/* ── DARK MODE ─────────────────────────────────────── */
-html.dark {
-  --ind:    #3B82F6;
-  --ind-d:  #2563EB;
-  --ind-l:  #60A5FA;
-  --teal:   #0EA5E9;
-  --rose:   #F87171;
-  --amb:    #FBBF24;
-  --grn:    #34D399;
-  --bg:     #0F172A;
-  --glass:  #1E293B;
-  --glass2: #334155;
-  --glass3: #475569;
-  --bdr:    #334155;
-  --bdr2:   #475569;
-  --txt:    #F1F5F9;
-  --txt2:   #CBD5E1;
-  --txt3:   #64748B;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
-  --shadow-md: 0 4px 8px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.2);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,.5), 0 4px 8px rgba(0,0,0,.3);
-  --sb-bg:  #1E293B;
-  --sb-bdr: #334155;
-  color-scheme: dark;
-}
-
-/* ── RESET ─────────────────────────────────────────── */
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
-input,select,textarea,button{font-family:inherit}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
-::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
-
-/* ── ANIMATIONS (restrained) ────────────────────────── */
-@keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes bounceIn{0%{transform:scale(.96);opacity:0}100%{transform:scale(1);opacity:1}}
-
-/* War Room executive cards */
-.decision-card{background:var(--glass);border:1px solid var(--bdr);border-radius:8px;margin-bottom:8px}
-.decision-card.pending{background:rgba(245,158,11,.05);border-left:4px solid var(--amb)}
-.decision-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
-.decision-actions{padding:12px 16px;border-top:1px solid var(--bdr);display:flex;gap:8px}
-.exception-row{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--bdr)}
-.warroom-kpi{background:var(--glass2);border-radius:10px;padding:12px;text-align:center}
-
-/* ── REST OF ORIGINAL STYLES (kept intact) ── */
-#root{min-height:100vh}
-#update-banner{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--ind-l);color:#fff;display:none;align-items:center;gap:12px;padding:12px 20px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0));box-shadow:0 -2px 12px rgba(0,0,0,.15)}
-#update-banner.show{display:flex}
-#ls{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999;transition:opacity .3s}
-.spin{width:28px;height:28px;border-radius:50%;border:2px solid var(--bdr2);border-top-color:var(--ind);animation:spin .7s linear infinite}
-#auth-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);animation:fadeIn .3s}
-.auth-card{background:var(--glass);border:1px solid var(--bdr);border-radius:8px;padding:36px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-lg)}
-.auth-brand{font-size:24px;font-weight:700;color:var(--txt);text-align:center;letter-spacing:-.02em;margin-bottom:4px}
-.auth-tag{font-size:11px;color:var(--txt3);text-align:center;margin-bottom:28px;letter-spacing:.05em;text-transform:uppercase}
-.auth-tabs{display:flex;background:var(--glass3);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:3px;margin-bottom:20px;gap:3px}
-.auth-tab{flex:1;padding:7px;border-radius:4px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;color:var(--txt2)}
-.auth-tab.on{background:var(--glass);color:var(--txt);font-weight:600;box-shadow:var(--shadow-sm);border:1px solid var(--bdr)}
-.gi{width:100%;padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px}
-.gi:focus{border-color:var(--ind-l);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-.btn{padding:9px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s}
-.btn-p{background:var(--ind-l);color:#fff;border-color:var(--ind-d)}
-.btn-g{background:var(--glass);color:var(--txt2);border:1px solid var(--bdr)}
-.btn-sm{padding:6px 12px;font-size:12px}
-#app{display:flex;min-height:100vh}
-#sb{width:230px;background:var(--sb-bg);border-right:1px solid var(--sb-bdr);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50}
-.sb-top{padding:16px 14px 10px;border-bottom:1px solid var(--bdr)}
-.sb-brand{font-size:15px;font-weight:700;color:var(--txt);letter-spacing:-.02em}
-.sb-tag{font-size:10px;color:var(--txt3);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
-.sb-nav{flex:1;padding:6px 8px;overflow-y:auto}
-.sb-b{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:var(--r-sm);background:none;border:none;border-left:2px solid transparent;color:var(--txt2);font-size:13px;font-weight:400;width:100%;text-align:left;cursor:pointer;transition:all .12s;margin-bottom:1px}
-.sb-b:hover{background:var(--glass2);color:var(--txt)}
-.sb-b.active{background:var(--glass2);color:var(--ind-l);border-left-color:var(--ind-l);font-weight:600}
-.sb-b .ic{font-size:14px;width:18px;text-align:center}
-.sb-bot{padding:10px;border-top:1px solid var(--bdr)}
-.prof-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);background:var(--glass2);border:1px solid var(--bdr);cursor:pointer;margin-bottom:6px;width:100%}
-.so-b{width:100%;padding:7px;border-radius:var(--r-sm);background:transparent;color:var(--txt3);border:1px solid var(--bdr);font-size:12px;font-weight:500;cursor:pointer}
-.theme-btn{width:100%;padding:7px;border-radius:var(--r-sm);background:transparent;color:var(--txt3);border:1px solid var(--bdr);font-size:12px;font-weight:500;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px}
-#content{flex:1;margin-left:230px;overflow-y:auto;min-height:100vh;padding-bottom:40px}
-.page{padding:22px 24px;display:none;animation:fadeIn .18s ease}
-.page.active{display:block}
-#bn{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--glass);border-top:1px solid var(--bdr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0);overflow-x:auto}
-.nb{flex:0 0 auto;min-width:56px;padding:9px 8px 8px;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--txt3);cursor:pointer}
-.nb.active{color:var(--ind-l)}
-@media(max-width:767px){#sb{transform:translateX(-100%)}#content{margin-left:0;padding-bottom:66px}#bn{display:flex}.page{padding:14px 16px}}
-@media(min-width:768px){#bn{display:none!important}}
-.gc{background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:10px}
-.bd{display:inline-flex;align-items:center;font-size:11px;font-weight:500;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
-.h-ot{background:#F0FDF4;color:#166534;border-color:#BBF7D0}
-.h-ar{background:#FFFBEB;color:#92400E;border-color:#FDE68A}
-.h-dl{background:#FEF2F2;color:#991B1B;border-color:#FECACA}
-html.dark .h-ot{background:rgba(5,150,105,.12);color:var(--grn)}
-html.dark .h-ar{background:rgba(217,119,6,.12);color:var(--amb)}
-html.dark .h-dl{background:rgba(220,38,38,.12);color:var(--rose)}
-.es{text-align:center;padding:52px 20px;color:var(--txt3)}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Taskora | Executive Operating System</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --card: #0f172a;
+      --card-2: #111827;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --border: #1e293b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 20% 0%, #1e293b 0%, var(--bg) 42%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .shell {
+      width: min(980px, 100%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(170deg, var(--card), var(--card-2));
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      padding: clamp(24px, 6vw, 52px);
+    }
+    .badge { color: #93c5fd; font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { font-size: clamp(28px, 5vw, 52px); line-height: 1.08; margin-top: 10px; max-width: 18ch; }
+    p { margin-top: 14px; color: var(--muted); font-size: 16px; max-width: 60ch; line-height: 1.7; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+    .btn {
+      border-radius: 10px;
+      padding: 11px 18px;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: all .15s ease;
+      font-size: 14px;
+    }
+    .btn.primary { background: var(--primary); color: #fff; }
+    .btn.primary:hover { background: var(--primary-hover); }
+    .btn.secondary { border-color: #334155; color: var(--text); background: transparent; }
+    .btn.secondary:hover { border-color: #64748b; background: rgba(148,163,184,.07); }
+    .grid {
+      margin-top: 28px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    .tile {
+      background: rgba(15,23,42,.66);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .tile b { color: var(--text); display: block; margin-bottom: 8px; }
+  </style>
 </head>
 <body>
-
-<div id="ls"><div class="spin"></div><div class="lb">Taskora</div><div class="ls-sub">Executive Operating System</div></div>
-
-<div id="update-banner">
-  <div style="font-size:20px;flex-shrink:0">✨</div>
-  <div style="flex:1;min-width:0">
-    <div class="ub-msg">New version available</div>
-    <div class="ub-sub">Tap Update to get the latest features</div>
-  </div>
-  <button class="ub-ok" onclick="applyUpdate()">Update now</button>
-  <button class="ub-skip" onclick="dismissUpdate()">Later</button>
-</div>
-
-<div id="auth-scr" style="display:none">
-  <div class="auth-card">
-    <div class="auth-brand">Taskora</div>
-    <div class="auth-tag">Run every business unit from one screen</div>
-    <button class="btn-google" onclick="doGoogleSSO()">Continue with Google</button>
-    <div class="sso-divider">or sign in with email</div>
-    <div class="auth-tabs">
-      <button id="at-si" class="auth-tab on" onclick="swAT('si')">Sign in</button>
-      <button id="at-su" class="auth-tab" onclick="swAT('su')">Create account</button>
-    </div>
-    <div id="amsg"></div>
-    <div id="form-si">
-      <input class="gi" id="si-em" type="email" placeholder="Email address"/>
-      <input class="gi" id="si-pw" type="password" placeholder="Password"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSI()">Sign in →</button>
-    </div>
-    <div id="form-su" style="display:none">
-      <input class="gi" id="su-em" type="email" placeholder="Email address"/>
-      <input class="gi" id="su-pw" type="password" placeholder="Password (min 8 characters)"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSU()">Create account →</button>
-    </div>
-  </div>
-</div>
-
-<div id="onboarding-overlay"><div class="ob-card" id="ob-card"></div></div>
-
-<div id="root" style="display:none">
-  <div id="app">
-    <div id="sb">
-      <div class="sb-top">
-        <div class="sb-brand">Taskora</div>
-        <div class="sb-tag">Executive Operating System</div>
-      </div>
-      <div class="sb-nav">
-        <button class="sb-b" data-tab="warroom"><span class="ic">⚡</span> War Room</button>
-        <button class="sb-b active" data-tab="dash"><span class="ic">⌂</span> Executive Dashboard</button>
-        <button class="sb-b" data-tab="portfolio"><span class="ic">🗂</span> Org Structure</button>
-        <button class="sb-b" data-tab="projects"><span class="ic">📋</span> Initiatives</button>
-        <button class="sb-b" data-tab="people"><span class="ic">👥</span> People &amp; Roles</button>
-        <button class="sb-b" data-tab="buildings"><span class="ic">🏢</span> Locations</button>
-        <button class="sb-b" data-tab="digest"><span class="ic">📤</span> Daily Briefing</button>
-        <button class="sb-b" data-tab="decisions"><span class="ic">📝</span> Decision Log</button>
-        <button class="sb-b" data-tab="notifications"><span class="ic">🔔</span> Notifications</button>
-        <button class="sb-b" data-tab="analytics"><span class="ic">📊</span> Analytics</button>
-        <button class="sb-b" data-tab="reports"><span class="ic">📈</span> Reports</button>
-        <button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>
-      </div>
-      <div class="sb-bot">
-        <div id="trial-bar-wrap"></div>
-        <button class="prof-btn" onclick="openProfile()">
-          <div id="sb-av" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--teal));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0">?</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sb-name">Account</div>
-            <div style="font-size:10px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="uem">—</div>
-          </div>
-          <div class="sdot" id="sd"></div>
-        </button>
-        <button class="so-b" onclick="doSO()">↪ Sign out</button>
-        <button class="theme-btn" id="theme-btn" onclick="toggleTheme()"><span id="theme-icon">☀</span> <span id="theme-label">Light mode</span></button>
-      </div>
+  <main class="shell">
+    <div class="badge">Taskora</div>
+    <h1>Run your complete organization from one operating screen.</h1>
+    <p>
+      Taskora centralizes initiatives, owners, decision logs, daily briefings, and executive reporting.
+      Start your full app experience in one click.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="/app/">Start free trial</a>
+      <a class="btn secondary" href="/app/">Open app</a>
     </div>
 
-    <div id="content">
-      <div id="tab-warroom" class="page"></div>
-      <div id="tab-dash" class="page"></div>
-      <div id="tab-portfolio" class="page"></div>
-      <div id="tab-projects" class="page"></div>
-      <div id="tab-people" class="page"></div>
-      <div id="tab-buildings" class="page"></div>
-      <div id="tab-digest" class="page"></div>
-      <div id="tab-decisions" class="page"></div>
-      <div id="tab-notifications" class="page"></div>
-      <div id="tab-analytics" class="page"></div>
-      <div id="tab-reports" class="page"></div>
-      <div id="tab-roles" class="page"></div>
-    </div>
-
-    <div id="bn">
-      <button class="nb" data-tab="warroom"><span class="ic">⚡</span><span class="lb">War Room</span></button>
-      <button class="nb active" data-tab="dash"><span class="ic">⌂</span><span class="lb">Home</span></button>
-      <button class="nb" data-tab="portfolio"><span class="ic">🗂</span><span class="lb">Org</span></button>
-      <button class="nb" data-tab="projects"><span class="ic">📋</span><span class="lb">Initiatives</span></button>
-      <button class="nb" data-tab="people"><span class="ic">👥</span><span class="lb">People</span></button>
-      <button class="nb" data-tab="digest"><span class="ic">📤</span><span class="lb">Briefing</span></button>
-      <button class="nb" data-tab="notifications"><span class="ic">🔔</span><span class="lb">Alerts</span></button>
-      <button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>
-    </div>
-  </div>
-</div>
-
-<div id="ov"><div id="sh"><div class="sh-hd"></div><div class="sh-row"><div class="sh-ti" id="sh-ti"></div><button class="sh-cl" onclick="CS()">×</button></div><div class="sh-bod" id="sh-bd"></div></div></div>
-
-<script>
-// ======================== SUPABASE & GLOBALS ========================
-const SB = supabase.createClient(
-  'https://blvijiqrgddvparsnpnh.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsdmlqaXFyZ2RkdnBhcnNucG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3ODc4NTAsImV4cCI6MjA5MDM2Mzg1MH0.J9wB4a384TRLfISIQC35pn5no-Pp52iZoB8fBiEExj8'
-);
-
-const PLATFORM_OWNER_EMAIL = 'engineeradityasingh@gmail.com';
-let IS_PLATFORM_OWNER = false, U = null, curTab = 'dash', MY_ROLE = 'super_admin', MY_PERSON_ID = null, CHAIRMAN_UID = null;
-let DB = { buildings:[], people:[], projects:[], milestones:[], tasks:[], pb:[], de:{}, templates:[], docs:[], notifications:[], schedule:null, themes:[], programs:[], decisions:[] };
-let expP = {}, expS = {}, ganttP = {};
-const SCYC = ['not_started','in_progress','awaiting','blocked','done'];
-const TS = { not_started:{l:'Not started'}, in_progress:{l:'In progress'}, blocked:{l:'Blocked'}, awaiting:{l:'Awaiting'}, done:{l:'Done'}, deferred:{l:'Deferred'} };
-const HS = { on_track:{l:'On Track',cls:'h-ot'}, at_risk:{l:'At Risk',cls:'h-ar'}, delayed:{l:'Delayed',cls:'h-dl'}, not_started:{l:'Not Started',cls:'h-ns'} };
-const tday = () => new Date().toISOString().slice(0,10);
-const isOD = (d,s) => !!(d && d < tday() && s !== 'done');
-const fd = d => d ? new Date(d+'T12:00:00').toLocaleDateString('en-US',{day:'numeric',month:'short'}) : '';
-const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const val = id => document.getElementById(id)?.value || '';
-const bdg = (s,sys) => `<span class="bd">${(sys||TS)[s]?.l||s}</span>`;
-const hBdg = h => `<span class="bd ${HS[h]?.cls||'h-ns'}">${HS[h]?.l||'Not Started'}</span>`;
-const av = (n,c,sz=30) => `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c||'#6366f1'};display:inline-flex;align-items:center;justify-content:center;font-size:${sz*.36}px;color:#fff;font-weight:600">${(n||'?').slice(0,2).toUpperCase()}</div>`;
-
-function showToast(msg,type){let t=document.createElement('div');t.textContent=msg;t.style.cssText=`position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:800;padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;color:#fff;background:${type==='ok'?'var(--grn)':'var(--rose)'};animation:fadeIn .2s`;document.body.appendChild(t);setTimeout(()=>t.remove(),2500);}
-function CS(){document.getElementById('ov').classList.remove('op');}
-function OS(ti,html,wide){document.getElementById('sh-ti').textContent=ti;document.getElementById('sh-bd').innerHTML=html;document.getElementById('sh').classList.toggle('wide',!!wide);document.getElementById('ov').classList.add('op');}
-
-async function load() {
-  if(!U) return;
-  const uid = CHAIRMAN_UID || U.id;
-  try{
-    const [b,p,pr,ms,t,pb,de,th,prog,tpl,docs,notifs,sched,decs] = await Promise.all([
-      SB.from('buildings').select('*').eq('user_id',uid), SB.from('people').select('*').eq('user_id',uid),
-      SB.from('projects').select('*').eq('user_id',uid), SB.from('sub_projects').select('*').eq('user_id',uid),
-      SB.from('tasks').select('*').eq('user_id',uid), SB.from('project_buildings').select('*').eq('user_id',uid),
-      SB.from('digest_edits').select('*').eq('user_id',uid), SB.from('themes').select('*').eq('user_id',uid),
-      SB.from('programs').select('*').eq('user_id',uid), SB.from('project_templates').select('*').eq('user_id',uid),
-      SB.from('documents').select('*').eq('workspace_id',uid), SB.from('notifications').select('*').eq('for_user_id',U.id),
-      SB.from('digest_schedule').select('*').eq('chairman_id',uid).maybeSingle(), SB.from('decision_log').select('*').eq('workspace_id',uid)
-    ]);
-    DB.buildings=b.data||[]; DB.people=p.data||[]; DB.projects=pr.data||[]; DB.milestones=ms.data||[]; DB.tasks=t.data||[];
-    DB.pb=pb.data||[]; DB.de=de.data?.reduce((a,c)=>(a[c.person_id]=c.content,a),{});
-    DB.themes=th.data||[]; DB.programs=prog.data||[]; DB.templates=tpl.data||[]; DB.docs=docs.data||[];
-    DB.notifications=notifs.data||[]; DB.schedule=sched.data; DB.decisions=decs.data||[];
-  }catch(e){console.error(e)}
-}
-
-// ======================== EXECUTIVE WAR ROOM (60-Second Decisions) ========================
-function renderWarRoom() {
-    const el = document.getElementById('tab-warroom');
-    if(!el) return;
-    const myProjIds = new Set(DB.projects.filter(p=>p.status!=='done').map(p=>p.id));
-    const allTasks = DB.tasks.filter(t=>myProjIds.has(t.projectId));
-    const today = tday();
-    const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate()-3);
-    const threeDayStr = threeDaysAgo.toISOString().slice(0,10);
-    
-    const criticalOverdue = allTasks.filter(t=>t.dueDate && t.dueDate < threeDayStr && t.status!=='done');
-    const blocked = allTasks.filter(t=>t.status==='blocked');
-    const awaiting = allTasks.filter(t=>t.status==='awaiting');
-    const dueToday = allTasks.filter(t=>t.dueDate===today && t.status!=='done');
-    const delayedProjects = DB.projects.filter(p=>p.health==='delayed' && p.status!=='done');
-    const pendingDecisions = allTasks.filter(t=>t.notes && t.notes.toLowerCase().includes('approval')).slice(0,5);
-    
-    let h = `<div style="background:var(--glass);border-radius:12px;margin-bottom:20px;overflow:hidden">
-        <div style="background:linear-gradient(135deg,var(--ind),var(--teal));padding:14px 20px;color:#fff">
-            <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">⚡ War Room · 60‑Second Decisions</h2>
-            <p style="font-size:12px;opacity:.85">Only what demands your attention right now.</p>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px">
-            <div class="warroom-kpi"><div style="font-size:28px;font-weight:800;color:var(--rose)">${criticalOverdue.length+blocked.length}</div><div style="font-size:11px;color:var(--txt3)">Critical Blockers</div></div>
-            <div class="warroom-kpi"><div style="font-size:28px;font-weight:800;color:var(--amb)">${pendingDecisions.length}</div><div style="font-size:11px;color:var(--txt3)">Decisions Pending</div></div>
-            <div class="warroom-kpi"><div style="font-size:28px;font-weight:800;color:var(--teal)">${dueToday.length}</div><div style="font-size:11px;color:var(--txt3)">Due Today</div></div>
-        </div>`;
-    
-    if(pendingDecisions.length){
-        h+=`<div style="padding:0 16px"><div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">📋 Decisions required from you</div>`;
-        pendingDecisions.forEach(t=>{
-            const proj = DB.projects.find(p=>p.id===t.projectId);
-            h+=`<div class="decision-card pending"><div class="decision-header"><div><div class="decision-title" style="font-weight:700">${esc(t.title)}</div><div style="font-size:11px;color:var(--txt3)">${proj?esc(proj.name):''}</div></div><span class="bd" style="background:rgba(245,158,11,.2);color:var(--amb)">pending</span></div><div class="decision-actions"><button onclick="resolveDecision('${t.id}','approve')" style="background:var(--grn);color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer">✓ Approve</button><button onclick="resolveDecision('${t.id}','reject')" style="background:rgba(220,38,38,.15);color:var(--rose);border:1px solid rgba(220,38,38,.3);padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer">✗ Reject</button></div></div>`;
-        });
-        h+=`</div>`;
-    }
-    
-    const blockerItems = [...criticalOverdue, ...blocked];
-    if(blockerItems.length){
-        h+=`<div style="padding:0 16px;margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--rose);margin-bottom:8px">🔴 Blockers & critical overdue</div>`;
-        blockerItems.slice(0,6).forEach(t=>{
-            const proj = DB.projects.find(p=>p.id===t.projectId);
-            const owner = DB.people.find(p=>p.id===t.assignedTo);
-            h+=`<div class="exception-row"><span style="font-size:18px">⚠️</span><div style="flex:1"><div style="font-weight:600">${esc(t.title)}</div><div style="font-size:11px;color:var(--txt3)">${proj?esc(proj.name):''} · ${owner?esc(owner.name):'unassigned'}</div></div><button onclick="quickResolveTask('${t.id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer">Resolve →</button></div>`;
-        });
-        h+=`</div>`;
-    }
-    
-    if(awaiting.length){
-        h+=`<div style="padding:0 16px;margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:8px">⏳ Awaiting response</div>`;
-        awaiting.slice(0,4).forEach(t=>{
-            const proj = DB.projects.find(p=>p.id===t.projectId);
-            h+=`<div class="exception-row"><span style="font-size:18px">⏳</span><div style="flex:1"><div style="font-weight:600">${esc(t.title)}</div><div style="font-size:11px;color:var(--txt3)">${proj?esc(proj.name):''}</div></div><button onclick="sendReminder('${t.id}')" style="background:var(--glass);border:1px solid var(--bdr);padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer">Remind</button></div>`;
-        });
-        h+=`</div>`;
-    }
-    
-    if(delayedProjects.length){
-        h+=`<div style="padding:0 16px;margin-top:16px"><div style="font-size:12px;font-weight:700;color:var(--rose);margin-bottom:8px">🏢 Delayed initiatives</div>`;
-        delayedProjects.forEach(p=>{
-            const owner = DB.people.find(pe=>pe.id===p.primaryOwnerId);
-            h+=`<div class="exception-row"><span style="font-size:18px">📉</span><div style="flex:1"><div style="font-weight:600">${esc(p.name)}</div><div style="font-size:11px;color:var(--txt3)">Owner: ${owner?esc(owner.name):'?'}</div></div><button onclick="escalateProject('${p.id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer">Escalate →</button></div>`;
-        });
-        h+=`</div>`;
-    }
-    
-    if(blockerItems.length===0 && pendingDecisions.length===0 && awaiting.length===0 && delayedProjects.length===0){
-        h+=`<div style="text-align:center;padding:40px"><span style="font-size:40px">🎯</span><div style="font-size:16px;font-weight:600;margin-top:8px">All clear</div><div style="font-size:12px;color:var(--txt3);margin-top:4px">No critical issues. Your team is on track.</div></div>`;
-    }
-    h+=`<div style="text-align:center;font-size:11px;color:var(--txt3);border-top:1px solid var(--bdr);padding:12px;margin-top:16px">⚡ Decisions made here auto‑log to Decision Log</div></div>`;
-    el.innerHTML = h;
-}
-
-window.resolveDecision = async (taskId, action) => {
-    const task = DB.tasks.find(t=>t.id===taskId);
-    if(!task) return;
-    if(action==='approve'){
-        task.status = 'in_progress';
-        await SB.from('tasks').update({status:'in_progress'}).eq('id',taskId).eq('user_id',CHAIRMAN_UID||U.id);
-        await SB.from('decision_log').insert({workspace_id:CHAIRMAN_UID||U.id, decision_text:`Approved: "${task.title}"`, made_by_id:MY_PERSON_ID, decision_date:tday(), unblocks:task.title});
-        showToast('✓ Approved – task unblocked','ok');
-    } else {
-        task.status = 'awaiting';
-        await SB.from('tasks').update({status:'awaiting', notes:(task.notes||'')+'\n[Rejected by executive: needs revision]'}).eq('id',taskId).eq('user_id',CHAIRMAN_UID||U.id);
-        showToast('✗ Rejected – request changes sent','ok');
-    }
-    await load(); renderWarRoom(); if(curTab==='dash') renderDash();
-};
-window.quickResolveTask = async (taskId) => {
-    const task = DB.tasks.find(t=>t.id===taskId);
-    if(!task) return;
-    const newStatus = prompt(`Set status for "${task.title}":\nin_progress / done / blocked`, task.status);
-    if(newStatus && TS[newStatus]){ task.status=newStatus; await SB.from('tasks').update({status:newStatus}).eq('id',taskId).eq('user_id',CHAIRMAN_UID||U.id); showToast(`Task marked ${newStatus}`,'ok'); await load(); renderWarRoom(); }
-};
-window.sendReminder = async (taskId) => {
-    const task = DB.tasks.find(t=>t.id===taskId);
-    if(!task) return;
-    const assignee = DB.people.find(p=>p.id===task.assignedTo);
-    if(assignee?.phone) window.open(`https://wa.me/${assignee.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`Reminder: Task "${task.title}" is awaiting your action.`)}`,'_blank');
-    else showToast('No WhatsApp number for assignee','err');
-};
-window.escalateProject = async (projId) => {
-    const proj = DB.projects.find(p=>p.id===projId);
-    if(!proj) return;
-    await SB.from('decision_log').insert({workspace_id:CHAIRMAN_UID||U.id, decision_text:`Escalated: "${proj.name}" – requires chairman review`, made_by_id:MY_PERSON_ID, decision_date:tday(), unblocks:proj.name});
-    showToast('Escalation logged in Decision Log','ok'); await load(); renderWarRoom();
-};
-
-// ======================== CORE APP FUNCTIONS ========================
-function renderDash(){ document.getElementById('tab-dash').innerHTML='<div class="es"><span class="em">📊</span><div class="et">Executive Dashboard</div><div class="ed">Use War Room for 60‑second decisions.</div></div>'; }
-function renderDecisions(){ let h='<div class="ph"><div><div class="pt">Decision Log</div></div><button class="btn btn-p btn-sm" onclick="oDecisionF()">+ Log decision</button></div>'; DB.decisions.forEach(d=>{h+=`<div class="gc"><div>${fd(d.decision_date)}</div><div style="font-weight:600">${esc(d.decision_text)}</div><div class="dl-meta">${d.unblocks?`Unblocks: ${esc(d.unblocks)}`:''}</div></div>`;}); document.getElementById('tab-decisions').innerHTML=h||'<div class="es">No decisions</div>'; }
-function oDecisionF(){ let h=`<textarea id="dc-text" class="gi" placeholder="Decision..."></textarea><input id="dc-un" class="gi" placeholder="Unblocks..."><div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svQuickDecision()">Save</button></div>`; OS('Log decision',h); }
-async function svQuickDecision(){ let text=val('dc-text').trim(); if(!text) return; await SB.from('decision_log').insert({workspace_id:CHAIRMAN_UID||U.id, decision_text:text, made_by_id:MY_PERSON_ID, decision_date:tday(), unblocks:val('dc-un')||null}); DB.decisions.push({id:Date.now(),decision_text:text,decision_date:tday()}); CS(); showToast('Decision logged','ok'); renderDecisions(); renderWarRoom(); }
-function renderTab(id){ if(id==='warroom') renderWarRoom(); else if(id==='dash') renderDash(); else if(id==='decisions') renderDecisions(); else document.getElementById(`tab-${id}`).innerHTML='<div class="es"><div class="et">Ready</div></div>'; }
-function switchTab(id){ curTab=id; document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(`tab-${id}`)?.classList.add('active'); document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id)); renderTab(id); }
-
-async function showApp(){ document.getElementById('root').style.display=''; const email=U.email||''; document.getElementById('uem').textContent=email; document.getElementById('sb-name').textContent=U.user_metadata?.display_name||email.split('@')[0]||'Account'; document.getElementById('sb-av').textContent=email.slice(0,2).toUpperCase(); updateThemeBtn(document.documentElement.classList.contains('dark')); CHAIRMAN_UID=U.id; await load(); renderWarRoom(); document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab))); }
-
-// ======================== AUTH & BOOT ========================
-function swAT(t){ document.getElementById('at-si').classList.toggle('on',t==='si'); document.getElementById('at-su').classList.toggle('on',t!=='si'); document.getElementById('form-si').style.display=t==='si'?'':'none'; document.getElementById('form-su').style.display=t!=='si'?'':'none'; }
-async function doSI(){ const e=val('si-em'),p=val('si-pw'); if(!e||!p)return; const{error}=await SB.auth.signInWithPassword({email:e,password:p}); if(error)alert(error.message); }
-async function doSU(){ const e=val('su-em'),p=val('su-pw'); if(p.length<8)return; const{error}=await SB.auth.signUp({email:e,password:p}); if(error)alert(error.message); }
-async function doSO(){ await SB.auth.signOut(); }
-function doGoogleSSO(){ SB.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin+window.location.pathname}}); }
-function toggleTheme(){ document.documentElement.classList.toggle('dark'); localStorage.setItem('taskora-theme',document.documentElement.classList.contains('dark')?'dark':'light'); updateThemeBtn(document.documentElement.classList.contains('dark')); }
-function updateThemeBtn(isDark){ let icon=document.getElementById('theme-icon'); if(icon) icon.textContent=isDark?'☾':'☀'; let lbl=document.getElementById('theme-label'); if(lbl) lbl.textContent=isDark?'Dark mode':'Light mode'; }
-function openProfile(){ let h=`<div>Account: ${U?.email}</div><div class="br"><button class="btn btn-g" onclick="CS()">Close</button></div>`; OS('Profile',h); }
-async function boot(){ const{data:{session}}=await SB.auth.getSession(); document.getElementById('ls').style.opacity='0'; setTimeout(()=>document.getElementById('ls').style.display='none',300); if(session){ U=session.user; showApp(); } else document.getElementById('auth-scr').style.display='flex'; SB.auth.onAuthStateChange(async(ev,ses)=>{ if(ses){ U=ses.user; showApp(); } else window.location.reload(); }); }
-let _waitingSW=null; function applyUpdate(){ if(_waitingSW)_waitingSW.postMessage({type:'SKIP_WAITING'}); document.getElementById('update-banner').classList.remove('show'); } function dismissUpdate(){ document.getElementById('update-banner').classList.remove('show'); }
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
-boot();
-</script>
+    <section class="grid" aria-label="Taskora highlights">
+      <article class="tile"><b>War room visibility</b>Track delayed work, blockers, and escalations in one place.</article>
+      <article class="tile"><b>Role-aware execution</b>Keep permissions mapped to owners, teams, and operational units.</article>
+      <article class="tile"><b>Decision intelligence</b>Capture executive decisions with context and accountability.</article>
+    </section>
+  </main>
 </body>
 </html>

@@ -1,38 +1,19 @@
-# Taskora Web Entry + App Routing
+# Taskora Web Routing
 
-This repository now serves **both**:
+This repository serves two surfaces:
 
-- `https://taskora.deftai.in` → public marketing/landing page
-- `https://taskora.deftai.in/app/` → full Taskora application
+- `/` → marketing/entry landing page
+- `/app/` → full Taskora application
 
-## What changed
+## What was fixed
 
-- Root `index.html` is the landing page (trial + product overview).
-- Full app moved to `app/index.html`.
-- Landing page CTAs now point to `/app/` so users can directly start using Taskora from the same domain.
-
-## DNS and publishing checklist (for `taskora.deftai.in`)
-
-1. Create DNS record for subdomain:
-   - Type: `CNAME`
-   - Host/Name: `taskora`
-   - Target: your hosting provider endpoint (for example, Vercel/Netlify/Cloudflare Pages target)
-2. Deploy this repository as a static site.
-3. Attach custom domain `taskora.deftai.in` in the hosting dashboard.
-4. Enable HTTPS/TLS (usually automatic on modern hosts).
-5. Verify:
-   - `https://taskora.deftai.in` opens landing page
-   - `https://taskora.deftai.in/app/` opens app login/dashboard
-
-## Trial flow expectation
-
-- Visitor lands on `taskora.deftai.in`, understands Taskora via landing content.
-- Clicking **Start Free Trial** routes to `/app/`.
-- User signs up and begins the 60-day trial in the full app.
+- Replaced the root `index.html` with a clean landing page to prevent app-runtime errors on the marketing route.
+- Kept the full product experience isolated under `app/index.html`.
+- Added a GitHub Actions workflow at `.github/workflows/static-checks.yml` that validates inline JavaScript syntax for both HTML entry points.
 
 ## Local preview
 
-From repo root:
+From repository root:
 
 ```bash
 python -m http.server 8080
@@ -40,5 +21,13 @@ python -m http.server 8080
 
 Then open:
 
-- `http://localhost:8080/` (landing)
-- `http://localhost:8080/app/` (application)
+- `http://localhost:8080/`
+- `http://localhost:8080/app/`
+
+## Deployment checklist
+
+1. Publish this repository as a static site.
+2. Point your domain/subdomain to the host.
+3. Verify both routes load:
+   - landing: `/`
+   - app: `/app/`
