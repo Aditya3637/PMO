@@ -1,7 +1,7 @@
 // ── TASKORA SERVICE WORKER ──────────────────────────────────────────────────
 // Bump CACHE_VER on every deploy — this is what the browser uses to detect
 // a changed SW file and trigger the update flow.
-const CACHE_VER = 'taskora-2026-04-01-v2';
+const CACHE_VER = 'taskora-2026-04-11-v1';
 const STATIC_CACHE = CACHE_VER + '-static';
 
 const PRECACHE = [
@@ -13,7 +13,6 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(STATIC_CACHE).then(c => c.addAll(PRECACHE)).catch(() => {})
   );
-  // No skipWaiting() — new SW waits politely for app to trigger it
 });
 
 // ACTIVATE — clean old caches, then claim clients
