@@ -2,1978 +2,632 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Taskora"/>
-<meta name="theme-color" content="#0f0f1a"/>
-<link rel="manifest" href="manifest.json"/>
-<title>Taskora — Executive Operating System</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Taskora — Run every business unit from one screen</title>
+<meta name="description" content="The CEO operating system for multi-entity businesses. See what needs your attention in 60 seconds, not 60 minutes of status calls."/>
+<meta property="og:title" content="Taskora — CEO Operating System"/>
+<meta property="og:description" content="Run every business unit from one screen. Replace status calls with accountability signals."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://taskora.deftai.in"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<link rel="canonical" href="https://taskora.deftai.in"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
 <style>
-/* ════════════════════════════════════════════════════
-   TASKORA — ENTERPRISE DESIGN SYSTEM
-   Light-first · Salesforce/Jira structure
-   Charcoal accent · Neutral palette
-   ════════════════════════════════════════════════════ */
-
-/* ── LIGHT MODE (default) ──────────────────────────── */
 :root {
-  --ind:    #1D4ED8;
-  --ind-d:  #1E40AF;
-  --ind-l:  #2563EB;
-  --teal:   #0284C7;
-  --rose:   #DC2626;
-  --amb:    #D97706;
-  --grn:    #059669;
-  --bg:     #F1F5F9;
-  --glass:  #FFFFFF;
-  --glass2: #F8FAFC;
-  --glass3: #F1F5F9;
-  --bdr:    #E2E8F0;
-  --bdr2:   #CBD5E1;
-  --txt:    #0F172A;
-  --txt2:   #475569;
-  --txt3:   #94A3B8;
-  --r:      6px;
-  --r-sm:   5px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-  --shadow-md: 0 4px 8px rgba(0,0,0,.06), 0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,.1), 0 4px 8px rgba(0,0,0,.06);
-  --sb-bg:  #FFFFFF;
-  --sb-bdr: #E2E8F0;
-  color-scheme: light;
+  --bg: #09090B;
+  --surface: #18181B;
+  --surface2: #27272A;
+  --border: #3F3F46;
+  --border2: #52525B;
+  --text: #FAFAFA;
+  --text2: #A1A1AA;
+  --text3: #71717A;
+  --accent: #2563EB;
+  --accent2: #3B82F6;
+  --accent-glow: rgba(37,99,235,.15);
+  --green: #10B981;
+  --amber: #F59E0B;
+  --rose: #F43F5E;
+  --radius: 12px;
+  --max-w: 1120px;
 }
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;line-height:1.6;overflow-x:hidden}
+::selection{background:var(--accent);color:#fff}
+a{color:inherit;text-decoration:none}
 
-html.dark {
-  --ind:    #3B82F6;
-  --ind-d:  #2563EB;
-  --ind-l:  #60A5FA;
-  --teal:   #0EA5E9;
-  --rose:   #F87171;
-  --amb:    #FBBF24;
-  --grn:    #34D399;
-  --bg:     #0F172A;
-  --glass:  #1E293B;
-  --glass2: #334155;
-  --glass3: #475569;
-  --bdr:    #334155;
-  --bdr2:   #475569;
-  --txt:    #F1F5F9;
-  --txt2:   #CBD5E1;
-  --txt3:   #64748B;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
-  --shadow-md: 0 4px 8px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.2);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,.5), 0 4px 8px rgba(0,0,0,.3);
-  --sb-bg:  #1E293B;
-  --sb-bdr: #334155;
-  color-scheme: dark;
+/* ── Grain overlay ── */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  background-repeat:repeat;opacity:.5}
+
+/* ── Utility ── */
+.container{max-width:var(--max-w);margin:0 auto;padding:0 24px}
+.serif{font-family:'Instrument Serif',Georgia,serif}
+.accent{color:var(--accent2)}
+.green{color:var(--green)}
+.amber{color:var(--amber)}
+.rose{color:var(--rose)}
+
+/* ── Animations ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes pulse-ring{0%{transform:scale(.95);opacity:1}100%{transform:scale(1.3);opacity:0}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes slideLeft{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.anim-up{animation:fadeUp .7s cubic-bezier(.16,1,.3,1) both}
+.anim-in{animation:fadeIn .6s ease both}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}
+.d4{animation-delay:.4s}.d5{animation-delay:.5s}.d6{animation-delay:.6s}
+
+/* ── Nav ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 0;transition:all .3s}
+nav.scrolled{background:rgba(9,9,11,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;max-width:var(--max-w);margin:0 auto;padding:0 24px}
+.nav-logo{font-size:20px;font-weight:700;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
+.nav-logo span{background:var(--accent);width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{font-size:14px;color:var(--text2);font-weight:500;transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{padding:9px 22px;background:var(--accent);color:#fff;border-radius:8px;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .2s}
+.nav-cta:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 4px 20px rgba(37,99,235,.4)}
+
+/* ── Hero ── */
+.hero{min-height:100vh;display:flex;align-items:center;position:relative;padding:120px 0 80px;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(37,99,235,.08) 0%,transparent 70%);pointer-events:none}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.hero-content{position:relative;z-index:2}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;background:var(--accent-glow);border:1px solid rgba(37,99,235,.25);border-radius:99px;font-size:13px;color:var(--accent2);font-weight:500;margin-bottom:28px}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--accent2);border-radius:50%;animation:pulse-ring 2s infinite}
+h1{font-size:52px;line-height:1.08;font-weight:800;letter-spacing:-.04em;margin-bottom:24px}
+h1 em{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;color:var(--accent2)}
+.hero-sub{font-size:18px;color:var(--text2);line-height:1.7;margin-bottom:36px;max-width:480px}
+.hero-actions{display:flex;gap:12px;align-items:center;margin-bottom:40px}
+.btn-primary{padding:14px 32px;background:var(--accent);color:#fff;border-radius:10px;font-size:15px;font-weight:600;border:none;cursor:pointer;transition:all .25s;font-family:inherit;display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 8px 30px rgba(37,99,235,.35)}
+.btn-ghost{padding:14px 28px;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-ghost:hover{border-color:var(--border2);background:var(--surface)}
+.hero-proof{display:flex;gap:32px}
+.hero-proof-item{display:flex;flex-direction:column}
+.hero-proof-item strong{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.hero-proof-item span{font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+/* ── Hero Visual ── */
+.hero-visual{position:relative;perspective:1200px}
+.dash-mock{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;transform:rotateY(-4deg) rotateX(2deg);box-shadow:0 24px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;animation:float 6s ease-in-out infinite;position:relative;overflow:hidden}
+.dash-mock::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent)}
+.mock-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.mock-title{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.mock-date{font-size:11px;color:var(--text3)}
+.mock-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.mock-stat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.mock-stat-n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.mock-stat-l{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.mock-cards{display:flex;flex-direction:column;gap:8px}
+.mock-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--green)}
+.mock-card.warn{border-left-color:var(--amber)}
+.mock-card.alert{border-left-color:var(--rose)}
+.mock-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;font-size:10px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center}
+.mock-card-body{flex:1;min-width:0}
+.mock-card-name{font-size:12px;font-weight:600}
+.mock-card-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.mock-badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:4px;flex-shrink:0;white-space:nowrap}
+
+/* ── Section ── */
+.section{padding:100px 0}
+.section-label{font-size:12px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}
+.section-title{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-bottom:16px}
+.section-sub{font-size:17px;color:var(--text2);line-height:1.7;max-width:560px}
+.section-head{text-align:center;margin-bottom:56px}
+.section-head .section-sub{margin:0 auto}
+
+/* ── Problem ── */
+.problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.problem-list{display:flex;flex-direction:column;gap:20px}
+.problem-item{display:flex;gap:16px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .2s}
+.problem-item:hover{border-color:var(--border2)}
+.problem-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.problem-item h4{font-size:15px;font-weight:600;margin-bottom:4px}
+.problem-item p{font-size:13px;color:var(--text2);line-height:1.6}
+
+/* ── Features ── */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.feature-card{padding:28px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:all .25s;position:relative;overflow:hidden}
+.feature-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.feature-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));opacity:0;transition:opacity .2s}
+.feature-card:hover::after{opacity:1}
+.feature-icon{font-size:28px;margin-bottom:16px;display:block}
+.feature-card h3{font-size:16px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.feature-card p{font-size:13px;color:var(--text2);line-height:1.7}
+
+/* ── How it works ── */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;position:relative}
+.steps::before{content:'';position:absolute;top:36px;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--border),var(--border),transparent);z-index:0}
+.step{text-align:center;position:relative;z-index:1}
+.step-num{width:56px;height:56px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--accent2);margin:0 auto 20px}
+.step h3{font-size:15px;font-weight:700;margin-bottom:6px}
+.step p{font-size:13px;color:var(--text2);line-height:1.6}
+
+/* ── Pricing ── */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:960px;margin:0 auto}
+.price-card{padding:32px 28px;background:var(--surface);border:1px solid var(--border);border-radius:16px;position:relative;transition:all .25s}
+.price-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.price-card.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(37,99,235,.06),var(--surface));box-shadow:0 0 60px rgba(37,99,235,.08)}
+.price-card.featured::before{content:'MOST POPULAR';position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:4px 14px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;border-radius:99px;letter-spacing:.08em}
+.price-name{font-size:14px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.price-amount{display:flex;align-items:baseline;gap:4px;margin-bottom:4px}
+.price-amount .dollar{font-size:42px;font-weight:800;letter-spacing:-.03em}
+.price-amount .period{font-size:14px;color:var(--text3)}
+.price-desc{font-size:13px;color:var(--text3);margin-bottom:24px}
+.price-features{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.price-features li{font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:8px}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.price-btn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .2s}
+.price-btn-primary{background:var(--accent);color:#fff}
+.price-btn-primary:hover{background:var(--accent2);box-shadow:0 4px 20px rgba(37,99,235,.3)}
+.price-btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.price-btn-ghost:hover{border-color:var(--border2);background:var(--surface2)}
+.trial-note{text-align:center;margin-top:20px;font-size:13px;color:var(--text3)}
+.annual-toggle{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:32px}
+.annual-toggle span{font-size:14px;color:var(--text2)}
+.annual-toggle .save{font-size:11px;color:var(--green);font-weight:600;background:rgba(16,185,129,.12);padding:2px 8px;border-radius:4px}
+
+/* ── Verticals ── */
+.verticals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.vertical-card{padding:28px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:all .2s}
+.vertical-card:hover{border-color:var(--border2)}
+.vertical-card h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.vertical-card p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px}
+.vertical-tag{font-size:11px;color:var(--accent2);font-weight:600}
+
+/* ── Trust ── */
+.trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.trust-item{text-align:center;padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.trust-item .icon{font-size:28px;margin-bottom:12px;display:block}
+.trust-item h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.trust-item p{font-size:12px;color:var(--text3);line-height:1.5}
+
+/* ── CTA ── */
+.cta-section{padding:100px 0;text-align:center;position:relative}
+.cta-section::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(circle,rgba(37,99,235,.06) 0%,transparent 70%);pointer-events:none}
+.cta-box{max-width:640px;margin:0 auto;position:relative;z-index:1}
+.cta-title{font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-bottom:16px}
+.cta-sub{font-size:17px;color:var(--text2);margin-bottom:32px}
+
+/* ── Footer ── */
+footer{padding:40px 0;border-top:1px solid var(--border)}
+.footer-inner{display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-size:14px;color:var(--text3)}
+.footer-links{display:flex;gap:24px}
+.footer-links a{font-size:13px;color:var(--text3);transition:color .2s}
+.footer-links a:hover{color:var(--text)}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .hero-grid,.problem-grid{grid-template-columns:1fr}
+  .hero-visual{display:none}
+  h1{font-size:38px}
+  .section-title{font-size:30px}
+  .features-grid,.steps,.pricing-grid,.verticals-grid,.trust-grid{grid-template-columns:1fr}
+  .steps::before{display:none}
+  .nav-links{display:none}
+  .hero-proof{gap:20px}
+  .cta-title{font-size:32px}
 }
-
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
-input,select,textarea,button{font-family:inherit}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
-::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
-
-@keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes bounceIn{0%{transform:scale(.96);opacity:0}100%{transform:scale(1);opacity:1}}
-
-#root{min-height:100vh}
-
-#update-banner{
-  position:fixed;bottom:0;left:0;right:0;z-index:9999;
-  background:var(--ind-l);color:#fff;
-  display:none;align-items:center;gap:12px;
-  padding:12px 20px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0));
-  box-shadow:0 -2px 12px rgba(0,0,0,.15);
+@media(min-width:901px) and (max-width:1100px){
+  .features-grid,.pricing-grid,.verticals-grid{grid-template-columns:repeat(2,1fr)}
+  .steps{grid-template-columns:repeat(2,1fr)}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
 }
-#update-banner.show{display:flex}
-#update-banner .ub-msg{flex:1;font-size:13px;font-weight:600}
-#update-banner .ub-sub{font-size:11px;opacity:.8;margin-top:1px}
-#update-banner button{padding:6px 14px;border-radius:var(--r-sm);font-size:12px;font-weight:600;border:none;cursor:pointer}
-#update-banner .ub-ok{background:#fff;color:var(--ind-l)}
-#update-banner .ub-ok:hover{opacity:.92}
-#update-banner .ub-skip{background:rgba(255,255,255,.2);color:#fff;margin-left:4px}
-
-#ls{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999;transition:opacity .3s}
-.spin{width:28px;height:28px;border-radius:50%;border:2px solid var(--bdr2);border-top-color:var(--ind);animation:spin .7s linear infinite}
-#ls .lb{font-size:18px;font-weight:700;color:var(--txt);letter-spacing:-.02em}
-#ls .ls-sub{font-size:11px;color:var(--txt3);letter-spacing:.06em;text-transform:uppercase}
-
-#auth-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);animation:fadeIn .3s}
-.auth-card{background:var(--glass);border:1px solid var(--bdr);border-radius:8px;padding:36px 32px;width:100%;max-width:400px;box-shadow:var(--shadow-lg)}
-.auth-brand{font-size:24px;font-weight:700;color:var(--txt);text-align:center;letter-spacing:-.02em;margin-bottom:4px}
-.auth-tag{font-size:11px;color:var(--txt3);text-align:center;margin-bottom:28px;letter-spacing:.05em;text-transform:uppercase}
-.auth-tabs{display:flex;background:var(--glass3);border:1px solid var(--bdr);border-radius:var(--r-sm);padding:3px;margin-bottom:20px;gap:3px}
-.auth-tab{flex:1;padding:7px;border-radius:4px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;color:var(--txt2)}
-.auth-tab.on{background:var(--glass);color:var(--txt);font-weight:600;box-shadow:var(--shadow-sm);border:1px solid var(--bdr)}
-.amsg{padding:10px 12px;border-radius:var(--r-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
-.amsg.err{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B}
-.amsg.ok{background:#F0FDF4;border:1px solid #BBF7D0;color:#166534}
-html.dark .amsg.err{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3);color:#FCA5A5}
-html.dark .amsg.ok{background:rgba(5,150,105,.12);border-color:rgba(5,150,105,.3);color:#6EE7B7}
-
-/* Google SSO button */
-.sso-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--txt3);font-size:12px}
-.sso-divider::before,.sso-divider::after{content:'';flex:1;height:1px;background:var(--bdr)}
-.btn-google{width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .15s;font-family:inherit}
-.btn-google:hover{background:var(--glass2);border-color:var(--bdr2)}
-.btn-google svg{width:18px;height:18px}
-
-.gi{width:100%;padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px}
-.gi:focus{border-color:var(--ind-l);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-.gi::placeholder{color:var(--txt3)}
-select.gi{cursor:pointer;background:var(--glass)}
-select.gi option{background:var(--glass);color:var(--txt)}
-textarea.gi{min-height:70px;resize:vertical;margin-bottom:0;line-height:1.6}
-.fl{font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;display:block}
-.fg{margin-bottom:14px}
-.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.lbl{font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
-
-.btn{padding:9px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:inherit}
-.btn-p{background:var(--ind-l);color:#fff;border-color:var(--ind-d)}
-.btn-p:hover{background:var(--ind);filter:brightness(1.05)}
-.btn-p:active{background:var(--ind-d)}
-.btn-p:disabled{opacity:.5;cursor:default}
-.btn-g{background:var(--glass);color:var(--txt2);border:1px solid var(--bdr)}
-.btn-g:hover{background:var(--glass2);color:var(--txt);border-color:var(--bdr2)}
-.btn-g:active{background:var(--glass3)}
-.btn-sm{padding:6px 12px;font-size:12px}
-.br{display:flex;gap:8px}
-.br .btn-g{flex:1}
-.br .btn-p{flex:2}
-.mb{padding:4px 10px;border-radius:var(--r-sm);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border:1px solid var(--bdr);background:var(--glass);color:var(--txt2);transition:all .15s}
-.mb:hover{background:var(--glass2);color:var(--txt);border-color:var(--bdr2)}
-.mb:active{background:var(--glass3)}
-.mb.dd{background:transparent;border-color:transparent;color:var(--txt3)}
-.mb.dd:hover{background:#FEF2F2;border-color:#FECACA;color:var(--rose)}
-html.dark .mb.dd:hover{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3);color:var(--rose)}
-.wa-b{flex:2;padding:10px;border-radius:var(--r-sm);font-size:13px;font-weight:600;background:#16A34A;color:#fff;border:1px solid #15803D;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;transition:all .15s}
-.wa-b:hover{background:#15803D}
-.cp-b{flex:1;padding:10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;background:var(--glass);color:var(--txt2);border:1px solid var(--bdr);cursor:pointer;transition:all .15s}
-.cp-b:hover{background:var(--glass2);color:var(--txt)}
-.cp-b.ok{background:#F0FDF4;color:#166534;border-color:#BBF7D0}
-html.dark .cp-b.ok{background:rgba(5,150,105,.12);color:var(--grn);border-color:rgba(5,150,105,.3)}
-
-#app{display:flex;min-height:100vh}
-#sb{width:230px;background:var(--sb-bg);border-right:1px solid var(--sb-bdr);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:50}
-.sb-top{padding:16px 14px 10px;border-bottom:1px solid var(--bdr)}
-.sb-brand{font-size:15px;font-weight:700;color:var(--txt);letter-spacing:-.02em}
-.sb-tag{font-size:10px;color:var(--txt3);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
-.sb-div{height:1px;background:var(--bdr);margin:6px 0}
-.sb-nav{flex:1;padding:6px 8px;overflow-y:auto}
-.sb-b{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:var(--r-sm);background:none;border:none;border-left:2px solid transparent;color:var(--txt2);font-size:13px;font-weight:400;width:100%;text-align:left;cursor:pointer;transition:all .12s;margin-bottom:1px;position:relative}
-.sb-b:hover{background:var(--glass2);color:var(--txt)}
-.sb-b.active{background:var(--glass2);color:var(--ind-l);border-left-color:var(--ind-l);font-weight:600}
-.sb-b .ic{font-size:14px;width:18px;text-align:center;flex-shrink:0}
-.sb-bot{padding:10px;border-top:1px solid var(--bdr)}
-.prof-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);background:var(--glass2);border:1px solid var(--bdr);cursor:pointer;margin-bottom:6px;width:100%;transition:all .15s;text-align:left}
-.prof-btn:hover{border-color:var(--bdr2)}
-.sdot{width:6px;height:6px;border-radius:50%;background:var(--grn);flex-shrink:0}
-.sdot.sy{background:var(--amb);animation:pulse 1.4s infinite}
-.sdot.er{background:var(--rose)}
-.so-b{width:100%;padding:7px;border-radius:var(--r-sm);background:transparent;color:var(--txt3);border:1px solid var(--bdr);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
-.so-b:hover{background:#FEF2F2;border-color:#FECACA;color:var(--rose)}
-html.dark .so-b:hover{background:rgba(220,38,38,.1);border-color:rgba(220,38,38,.3);color:var(--rose)}
-.theme-btn{width:100%;padding:7px;border-radius:var(--r-sm);background:transparent;color:var(--txt3);border:1px solid var(--bdr);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:6px}
-.theme-btn:hover{background:var(--glass2);color:var(--txt);border-color:var(--bdr2)}
-
-/* Trial countdown */
-.trial-bar{padding:8px 10px;margin-bottom:6px;border-radius:var(--r-sm);background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);text-align:center;cursor:pointer;transition:all .15s}
-.trial-bar:hover{background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.3)}
-.trial-bar .trial-days{font-size:14px;font-weight:700;color:var(--ind-l)}
-.trial-bar .trial-label{font-size:10px;color:var(--txt3);margin-top:1px}
-.trial-bar.expiring{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.2)}
-.trial-bar.expiring .trial-days{color:var(--rose)}
-.trial-bar.expired{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3)}
-.trial-bar.expired .trial-days{color:var(--rose)}
-
-#content{flex:1;margin-left:230px;overflow-y:auto;min-height:100vh;padding-bottom:40px}
-.page{padding:22px 24px;display:none;animation:fadeIn .18s ease}
-.page.active{display:block}
-
-#bn{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--glass);border-top:1px solid var(--bdr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0);overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-#bn::-webkit-scrollbar{display:none}
-.nb{flex:0 0 auto;min-width:56px;padding:9px 8px 8px;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--txt3);cursor:pointer;transition:color .15s;position:relative}
-.nb.active{color:var(--ind-l)}
-.nb .ic{font-size:18px;line-height:1}
-.nb .lb{font-size:10px;font-weight:500;white-space:nowrap}
-@media(max-width:767px){
-  #sb{transform:translateX(-100%)}
-  #content{margin-left:0;padding-bottom:66px}
-  #bn{display:flex}
-  .page{padding:14px 16px}
-}
-@media(min-width:768px){#bn{display:none!important}}
-
-.gc{background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;margin-bottom:10px;transition:border-color .15s,box-shadow .15s}
-.gc:hover{border-color:var(--bdr2);box-shadow:var(--shadow-sm)}
-.gc.red{border-left:3px solid var(--rose)}
-.gc.amb{border-left:3px solid var(--amb)}
-.gc.exp{border-color:var(--bdr2);box-shadow:var(--shadow-md)}
-
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
-.sc{background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);padding:16px;position:relative}
-.sc::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;border-radius:var(--r);background:var(--ac,var(--ind));opacity:.03;pointer-events:none}
-.sn{font-size:28px;font-weight:700;line-height:1;color:var(--ac,var(--ind-l));letter-spacing:-.02em}
-.sl{font-size:12px;color:var(--txt2);margin-top:4px}
-
-.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--bdr)}
-.pt{font-size:18px;font-weight:700;color:var(--txt);letter-spacing:-.01em}
-.ps{font-size:12px;color:var(--txt3);margin-top:2px}
-
-.bd{display:inline-flex;align-items:center;font-size:11px;font-weight:500;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid transparent;line-height:1.4}
-.h-ot{background:#F0FDF4;color:#166534;border-color:#BBF7D0}
-.h-ar{background:#FFFBEB;color:#92400E;border-color:#FDE68A}
-.h-dl{background:#FEF2F2;color:#991B1B;border-color:#FECACA}
-.h-ns{background:#F8FAFC;color:#475569;border-color:#E2E8F0}
-html.dark .h-ot{background:rgba(5,150,105,.12);color:var(--grn);border-color:rgba(5,150,105,.3)}
-html.dark .h-ar{background:rgba(217,119,6,.12);color:var(--amb);border-color:rgba(217,119,6,.3)}
-html.dark .h-dl{background:rgba(220,38,38,.12);color:var(--rose);border-color:rgba(220,38,38,.3)}
-html.dark .h-ns{background:rgba(100,116,139,.1);color:var(--txt3);border-color:rgba(100,116,139,.2)}
-.p-cr{background:#FEF2F2;color:#991B1B;border-color:#FECACA}
-.p-hi{background:#FFFBEB;color:#92400E;border-color:#FDE68A}
-.p-me{background:#EFF6FF;color:#1E40AF;border-color:#BFDBFE}
-.p-lo{background:#F8FAFC;color:#475569;border-color:#E2E8F0}
-html.dark .p-cr{background:rgba(220,38,38,.12);color:var(--rose);border-color:rgba(220,38,38,.3)}
-html.dark .p-hi{background:rgba(217,119,6,.12);color:var(--amb);border-color:rgba(217,119,6,.3)}
-html.dark .p-me{background:rgba(37,99,235,.12);color:var(--ind-l);border-color:rgba(37,99,235,.3)}
-html.dark .p-lo{background:rgba(100,116,139,.1);color:var(--txt3);border-color:rgba(100,116,139,.2)}
-
-.pw{height:4px;background:var(--bdr);border-radius:2px;overflow:hidden}
-.pb{height:100%;border-radius:2px;transition:width .4s ease}
-
-.pls{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-.pls::-webkit-scrollbar{display:none}
-.pl{padding:4px 12px;border-radius:4px;font-size:12px;font-weight:500;border:1px solid var(--bdr);background:var(--glass);color:var(--txt2);white-space:nowrap;flex-shrink:0;cursor:pointer;transition:all .12s}
-.pl.active{background:#EFF6FF;border-color:#BFDBFE;color:var(--ind-l);font-weight:600}
-.pl:hover:not(.active){background:var(--glass2);color:var(--txt);border-color:var(--bdr2)}
-html.dark .pl.active{background:rgba(37,99,235,.15);border-color:rgba(37,99,235,.4);color:var(--ind-l)}
-
-.av{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:600;color:#fff;flex-shrink:0;font-size:11px}
-
-.owner-box{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-sm);border:1px solid #BFDBFE;background:#EFF6FF;margin-bottom:10px}
-.owner-box.empty{border-color:var(--bdr);background:var(--glass2)}
-html.dark .owner-box{border-color:rgba(37,99,235,.3);background:rgba(37,99,235,.08)}
-html.dark .owner-box.empty{border-color:var(--bdr);background:var(--glass2)}
-
-.sw-wrap{display:flex;gap:6px;flex-wrap:wrap}
-.sw{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
-.sw.on{border-color:var(--txt);transform:scale(1.15)}
-.sw:hover:not(.on){transform:scale(1.1)}
-
-.tw{overflow-x:auto;border-radius:var(--r);border:1px solid var(--bdr);margin-bottom:12px;background:var(--glass)}
-table{width:100%;border-collapse:collapse;min-width:560px}
-thead tr{background:var(--glass2)}
-th{text-align:left;padding:9px 13px;font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bdr);white-space:nowrap}
-td{padding:9px 13px;border-bottom:1px solid var(--bdr);font-size:13px;color:var(--txt);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--glass2)}
-
-.dta{width:100%;min-height:180px;padding:12px;border-radius:var(--r-sm);border:1px solid var(--bdr);background:var(--glass);color:var(--txt);font-size:12px;font-family:'SF Mono',ui-monospace,monospace;line-height:1.9;resize:vertical;outline:none;box-sizing:border-box;transition:border-color .15s,box-shadow .15s}
-.dta:focus{border-color:var(--ind-l);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
-
-.ih{font-size:13px;color:var(--txt2);line-height:1.6;background:var(--glass2);padding:11px 13px;border-radius:var(--r-sm);border:1px solid var(--bdr);margin-bottom:14px}
-
-.es{text-align:center;padding:52px 20px;color:var(--txt3)}
-.es .em{font-size:40px;margin-bottom:14px;display:block}
-.es .et{font-size:16px;font-weight:600;color:var(--txt2);margin-bottom:6px}
-.es .ed{font-size:13px;line-height:1.6;max-width:260px;margin:0 auto}
-
-.tr-row{background:var(--glass);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:4px;border:1px solid var(--bdr);border-left:3px solid var(--bdr2);transition:border-color .12s}
-.tr-row:hover{border-color:var(--bdr2);background:var(--glass2)}
-.tr-row.od{border-left-color:var(--rose);background:#FEF2F2}
-html.dark .tr-row.od{background:rgba(220,38,38,.07)}
-.tm{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px}
-
-.sr{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--glass);border-radius:var(--r-sm);cursor:pointer;border:1px solid var(--bdr);margin-bottom:3px;transition:all .12s}
-.sr:hover{background:var(--glass2);border-color:var(--bdr2)}
-.bpr{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--glass);border-radius:var(--r-sm);margin-bottom:4px;border:1px solid var(--bdr);cursor:pointer;transition:all .12s}
-.bpr:hover{background:var(--glass2);border-color:var(--bdr2)}
-
-.invite-pending{background:#FFFBEB;color:#92400E;border-color:#FDE68A}
-.invite-accepted{background:#F0FDF4;color:#166534;border-color:#BBF7D0}
-html.dark .invite-pending{background:rgba(217,119,6,.12);color:var(--amb);border-color:rgba(217,119,6,.3)}
-html.dark .invite-accepted{background:rgba(5,150,105,.12);color:var(--grn);border-color:rgba(5,150,105,.3)}
-
-#ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:none;align-items:flex-end;justify-content:center}
-#ov.op{display:flex;animation:fadeIn .12s}
-#sh{background:var(--glass);border:1px solid var(--bdr);border-bottom:none;width:100%;max-width:520px;border-radius:8px 8px 0 0;max-height:92vh;overflow-y:auto;padding-bottom:calc(env(safe-area-inset-bottom,0) + 20px);animation:slideUp .2s ease;box-shadow:var(--shadow-lg)}
-.sh-hd{width:32px;height:3px;background:var(--bdr2);border-radius:2px;margin:12px auto 0}
-.sh-row{display:flex;justify-content:space-between;align-items:center;padding:14px 18px 10px;border-bottom:1px solid var(--bdr)}
-.sh-ti{font-size:15px;font-weight:600;color:var(--txt)}
-.sh-cl{width:26px;height:26px;border-radius:4px;background:var(--glass2);border:1px solid var(--bdr);color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .12s}
-.sh-cl:hover{background:var(--glass3);color:var(--txt)}
-.sh-bod{padding:16px 18px 4px}
-@media(min-width:768px){
-  #ov{align-items:center}
-  #sh{border-radius:8px;border-bottom:1px solid var(--bdr);max-width:500px;box-shadow:var(--shadow-lg);animation:bounceIn .2s}
-  #sh.wide{max-width:640px}
-  .sh-hd{display:none}
-}
-
-.notif-badge{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);min-width:17px;height:17px;border-radius:99px;background:var(--rose);color:#fff;font-size:10px;font-weight:600;align-items:center;justify-content:center;padding:0 4px}
-
-/* Onboarding wizard */
-#onboarding-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
-#onboarding-overlay.show{display:flex}
-.ob-card{background:var(--glass);border:1px solid var(--bdr);border-radius:12px;padding:40px 36px;width:100%;max-width:520px;box-shadow:var(--shadow-lg);animation:bounceIn .3s}
-.ob-step-dots{display:flex;gap:6px;justify-content:center;margin-bottom:24px}
-.ob-dot{width:8px;height:8px;border-radius:50%;background:var(--bdr2);transition:all .2s}
-.ob-dot.active{background:var(--ind-l);width:24px;border-radius:4px}
-.ob-dot.done{background:var(--grn)}
-.ob-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:6px;color:var(--txt)}
-.ob-sub{font-size:13px;color:var(--txt3);text-align:center;margin-bottom:24px}
-.ob-actions{display:flex;gap:8px;margin-top:20px}
-.ob-actions .btn{flex:1}
-
-/* Decision log */
-.dl-entry{padding:12px 14px;background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r-sm);margin-bottom:6px;border-left:3px solid var(--ind-l)}
-.dl-entry .dl-date{font-size:11px;color:var(--txt3);margin-bottom:4px}
-.dl-entry .dl-text{font-size:13px;color:var(--txt);line-height:1.6;margin-bottom:6px}
-.dl-entry .dl-meta{display:flex;gap:8px;font-size:11px;color:var(--txt2);flex-wrap:wrap}
 </style>
 </head>
 <body>
 
-<div id="ls"><div class="spin"></div><div class="lb">Taskora</div><div class="ls-sub">Executive Operating System</div></div>
-
-<div id="update-banner">
-  <div style="font-size:20px;flex-shrink:0">✨</div>
-  <div style="flex:1;min-width:0">
-    <div class="ub-msg">New version available</div>
-    <div class="ub-sub">Tap Update to get the latest features</div>
-  </div>
-  <button class="ub-ok" onclick="applyUpdate()">Update now</button>
-  <button class="ub-skip" onclick="dismissUpdate()">Later</button>
-</div>
-
-<div id="auth-scr" style="display:none">
-  <div class="auth-card">
-    <div class="auth-brand">Taskora</div>
-    <div class="auth-tag">Run every business unit from one screen</div>
-
-    <!-- Google SSO -->
-    <button class="btn-google" onclick="doGoogleSSO()">
-      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-      Continue with Google
-    </button>
-
-    <div class="sso-divider">or sign in with email</div>
-
-    <div class="auth-tabs">
-      <button id="at-si" class="auth-tab on" onclick="swAT('si')">Sign in</button>
-      <button id="at-su" class="auth-tab" onclick="swAT('su')">Create account</button>
+<!-- ── NAV ── -->
+<nav id="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <span>T</span> Taskora
     </div>
-    <div id="amsg"></div>
-    <div id="form-si">
-      <input class="gi" id="si-em" type="email" placeholder="Email address" autocomplete="email"
-        onkeydown="if(event.key==='Enter')document.getElementById('si-pw').focus()"/>
-      <input class="gi" id="si-pw" type="password" placeholder="Password" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter')doSI()"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSI()">Sign in →</button>
-    </div>
-    <div id="form-su" style="display:none">
-      <input class="gi" id="su-em" type="email" placeholder="Email address" autocomplete="email"
-        onkeydown="if(event.key==='Enter')document.getElementById('su-pw').focus()"/>
-      <input class="gi" id="su-pw" type="password" placeholder="Password (min 8 characters)" autocomplete="new-password"
-        onkeydown="if(event.key==='Enter')doSU()"/>
-      <button class="btn btn-p" style="width:100%;margin-top:4px" onclick="doSU()">Create account →</button>
-    </div>
-    <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--txt3)">
-      By continuing, you agree to our <a href="/privacy" style="color:var(--ind-l)">Privacy Policy</a> and <a href="/terms" style="color:var(--ind-l)">Terms</a>.
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#verticals">Who It's For</a>
+      <a href="/app/" class="nav-cta">Start Free Trial →</a>
     </div>
   </div>
-</div>
+</nav>
 
-<!-- Onboarding Wizard -->
-<div id="onboarding-overlay">
-  <div class="ob-card" id="ob-card"></div>
-</div>
-
-<div id="root" style="display:none">
-  <div id="app">
-    <div id="sb">
-      <div class="sb-top">
-        <div class="sb-brand">Taskora</div>
-        <div class="sb-tag">Executive Operating System</div>
-      </div>
-      <div class="sb-nav"></div>
-      <div class="sb-bot">
-        <div id="trial-bar-wrap"></div>
-        <button class="prof-btn" onclick="openProfile()">
-          <div id="sb-av" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--teal));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0">?</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sb-name">Account</div>
-            <div style="font-size:10px;color:var(--txt3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="uem">—</div>
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div class="hero-content">
+        <div class="hero-badge anim-up">
+          60-day free trial · No credit card required
+        </div>
+        <h1 class="anim-up d1">
+          Run every<br/>business unit<br/>from <em>one screen.</em>
+        </h1>
+        <p class="hero-sub anim-up d2">
+          Taskora is the accountability operating system for CEOs managing multiple business units. See what needs your attention in 60 seconds — not 60 minutes of status calls.
+        </p>
+        <div class="hero-actions anim-up d3">
+          <a href="/app/" class="btn-primary">Start free trial <span>→</span></a>
+          <a href="#how" class="btn-ghost">See how it works</a>
+        </div>
+        <div class="hero-proof anim-up d4">
+          <div class="hero-proof-item">
+            <strong>60s</strong>
+            <span>Morning review</span>
           </div>
-          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-            <div class="sdot" id="sd"></div>
-            <span style="font-size:11px;color:var(--txt3)">⚙</span>
+          <div class="hero-proof-item">
+            <strong>12</strong>
+            <span>Signal intelligence</span>
           </div>
-        </button>
-        <button class="so-b" onclick="doSO()">↪ Sign out</button>
-        <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">
-          <span id="theme-icon">☀</span> <span id="theme-label">Light mode</span>
-        </button>
+          <div class="hero-proof-item">
+            <strong>3</strong>
+            <span>Delivery channels</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual anim-up d3">
+        <div class="dash-mock">
+          <div class="mock-header">
+            <div class="mock-title">Executive Dashboard</div>
+            <div class="mock-date">April 11, 2026</div>
+          </div>
+          <div class="mock-stats">
+            <div class="mock-stat">
+              <div class="mock-stat-n green">5</div>
+              <div class="mock-stat-l">On Track</div>
+            </div>
+            <div class="mock-stat">
+              <div class="mock-stat-n amber">2</div>
+              <div class="mock-stat-l">At Risk</div>
+            </div>
+            <div class="mock-stat">
+              <div class="mock-stat-n rose">1</div>
+              <div class="mock-stat-l">Delayed</div>
+            </div>
+          </div>
+          <div class="mock-cards">
+            <div class="mock-card">
+              <div class="mock-av" style="background:#059669">RK</div>
+              <div class="mock-card-body">
+                <div class="mock-card-name">Rajesh Kumar — Operations</div>
+                <div class="mock-card-sub">4 initiatives · 2 due this week</div>
+              </div>
+              <div class="mock-badge" style="background:rgba(16,185,129,.15);color:#10B981">On Track</div>
+            </div>
+            <div class="mock-card warn">
+              <div class="mock-av" style="background:#D97706">SP</div>
+              <div class="mock-card-body">
+                <div class="mock-card-name">Sarah Park — Expansion</div>
+                <div class="mock-card-sub">3 initiatives · 1 blocked</div>
+              </div>
+              <div class="mock-badge" style="background:rgba(245,158,11,.15);color:#F59E0B">At Risk</div>
+            </div>
+            <div class="mock-card alert">
+              <div class="mock-av" style="background:#DC2626">MJ</div>
+              <div class="mock-card-body">
+                <div class="mock-card-name">Mike Johnson — Logistics</div>
+                <div class="mock-card-sub">2 initiatives · 5 overdue</div>
+              </div>
+              <div class="mock-badge" style="background:rgba(244,63,94,.15);color:#F43F5E">⚠ Delayed</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div id="content">
-      <div id="tab-dash" class="page active"></div>
-      <div id="tab-portfolio" class="page"></div>
-      <div id="tab-projects" class="page"></div>
-      <div id="tab-people" class="page"></div>
-      <div id="tab-buildings" class="page"></div>
-      <div id="tab-digest" class="page"></div>
-      <div id="tab-roles" class="page"></div>
-      <div id="tab-notifications" class="page"></div>
-      <div id="tab-analytics" class="page"></div>
-      <div id="tab-reports" class="page"></div>
-      <div id="tab-decisions" class="page"></div>
-    </div>
-
-    <div id="bn"></div>
   </div>
-</div>
+</section>
 
-<div id="ov">
-  <div id="sh">
-    <div class="sh-hd"></div>
-    <div class="sh-row">
-      <div class="sh-ti" id="sh-ti"></div>
-      <button class="sh-cl" onclick="CS()">×</button>
+<!-- ── PROBLEM ── -->
+<section class="section" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="problem-grid">
+      <div>
+        <div class="section-label">The Problem</div>
+        <div class="section-title">You're running 5 divisions.<br/>You have <em class="serif" style="color:var(--rose)">zero</em> single view.</div>
+        <p class="section-sub" style="margin-top:16px">Your VPs send updates in whatever format they prefer — PowerPoints, spreadsheets, Slack threads, or verbal briefings in meetings. You piece together the truth from fragments. Problems surface late. Decisions wait.</p>
+      </div>
+      <div class="problem-list">
+        <div class="problem-item">
+          <div class="problem-icon" style="background:rgba(244,63,94,.1);color:var(--rose)">⏱</div>
+          <div>
+            <h4>6–10 hours per week in status meetings</h4>
+            <p>Meetings that exist because there's no shared system. Everyone updates verbally. Nothing is tracked consistently.</p>
+          </div>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon" style="background:rgba(245,158,11,.1);color:var(--amber)">🔍</div>
+          <div>
+            <h4>Problems discovered after they've escalated</h4>
+            <p>A blocked initiative in one division doesn't surface until it's a crisis. The CEO hears about it too late to intervene cheaply.</p>
+          </div>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon" style="background:rgba(37,99,235,.1);color:var(--accent2)">📊</div>
+          <div>
+            <h4>Inconsistent information formats</h4>
+            <p>Each division uses different tools, different templates, different definitions of "on track." Apples-to-oranges comparison every week.</p>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="sh-bod" id="sh-bd"></div>
   </div>
-</div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Features</div>
+      <div class="section-title">Not project management.<br/>Executive <em class="serif">accountability.</em></div>
+      <p class="section-sub">Taskora sits between the CEO and their organisation. Your team does the work. You see the signals.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">⌂</span>
+        <h3>Executive Dashboard</h3>
+        <p>Every business unit lead on one screen with green/amber/red accountability signals. Read it in 60 seconds with your morning coffee.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📤</span>
+        <h3>Daily Briefing</h3>
+        <p>12-signal intelligence engine detects overdue work, blocked initiatives, dependency chains, and unassigned tasks. Delivered via email, Slack, or WhatsApp.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📊</span>
+        <h3>Gantt &amp; Timeline</h3>
+        <p>Full-page portfolio Gantt view showing every initiative across every business unit with milestones, today-line, and health colours.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔄</span>
+        <h3>Recurring Meeting Tracker</h3>
+        <p>Track whether mandatory recurring meetings are actually happening. No other tool does this. Overdue meetings surface on the dashboard.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📈</span>
+        <h3>Board Pack Reports</h3>
+        <p>Monthly and yearly stakeholder comparison, performance analysis, CSV export, and PDF board pack generation. Ready for your board meeting.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🏢</span>
+        <h3>Multi-Location Support</h3>
+        <p>Franchise operators and multi-site businesses get per-location tracking with go-live dates, site tasks, and secondary responsibility holders.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🚨</span>
+        <h3>Escalation Engine</h3>
+        <p>Tasks overdue more than 3 days, blocked work, and delayed initiatives are automatically flagged for executive attention. Problems surface before they escalate.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔑</span>
+        <h3>Role-Based Access</h3>
+        <p>Three permission tiers: Admin sees everything. BU Lead sees their division. Team Members see their own tasks. Invite via email, assign roles, enforce limits.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📋</span>
+        <h3>Initiative Templates</h3>
+        <p>Save your initiative structure as a template with milestones and tasks. Apply it to new projects in one click. Perfect for repeatable playbooks.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="section" id="how" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">How It Works</div>
+      <div class="section-title">From signup to <em class="serif">accountability</em> in 10 minutes.</div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Set up your org</h3>
+        <p>Name your business units. Add your division leads. Define the structure.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Create initiatives</h3>
+        <p>Add strategic initiatives with milestones, tasks, due dates, and owners.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Team executes</h3>
+        <p>Your BU leads and their teams update task statuses as they work. You don't chase anyone.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>You see signals</h3>
+        <p>Open your dashboard each morning. Green, amber, red. Act only where it matters.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Pricing</div>
+      <div class="section-title">Priced by business unit,<br/>not <em class="serif">headcount.</em></div>
+      <p class="section-sub">You think in divisions, not seats. So does your invoice. Every plan includes a 60-day free trial — no credit card required.</p>
+    </div>
+    <div class="annual-toggle">
+      <span>Monthly</span>
+      <span style="color:var(--text3)">|</span>
+      <span>Annual</span>
+      <span class="save">Save 17%</span>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Free</div>
+        <div class="price-amount"><span class="dollar">$0</span><span class="period">/forever</span></div>
+        <div class="price-desc">For small operators getting started</div>
+        <ul class="price-features">
+          <li>Up to 2 business units</li>
+          <li>3 team members</li>
+          <li>Executive Dashboard</li>
+          <li>In-app Daily Briefing</li>
+          <li>Basic reports</li>
+        </ul>
+        <button class="price-btn price-btn-ghost" onclick="window.location.href='/app/'">Get started free</button>
+      </div>
+      <div class="price-card featured">
+        <div class="price-name">Growth</div>
+        <div class="price-amount"><span class="dollar">$149</span><span class="period">/month</span></div>
+        <div class="price-desc">For CEOs running multiple divisions</div>
+        <ul class="price-features">
+          <li>Up to 8 business units</li>
+          <li>25 team members</li>
+          <li>Email + Slack briefing</li>
+          <li>Board pack PDF export</li>
+          <li>Decision log</li>
+          <li>Multi-location support</li>
+          <li>Gantt &amp; timeline views</li>
+          <li>MFA / 2FA</li>
+        </ul>
+        <button class="price-btn price-btn-primary" onclick="window.location.href='/app/'">Start 60-day trial →</button>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Scale</div>
+        <div class="price-amount"><span class="dollar">$399</span><span class="period">/month</span></div>
+        <div class="price-desc">For large portfolios &amp; holding companies</div>
+        <ul class="price-features">
+          <li>Unlimited business units</li>
+          <li>100 team members</li>
+          <li>Everything in Growth</li>
+          <li>Google SSO</li>
+          <li>Priority support</li>
+          <li>Custom briefing cadence</li>
+          <li>API access</li>
+          <li>White-glove onboarding</li>
+        </ul>
+        <button class="price-btn price-btn-ghost" onclick="window.location.href='/app/'">Start 60-day trial →</button>
+      </div>
+    </div>
+    <div class="trial-note">All paid plans include a 60-day free trial. No credit card required. Cancel anytime.</div>
+  </div>
+</section>
+
+<!-- ── VERTICALS ── -->
+<section class="section" id="verticals" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Who It's For</div>
+      <div class="section-title">Built for CEOs who run <em class="serif">more than one thing.</em></div>
+    </div>
+    <div class="verticals-grid">
+      <div class="vertical-card">
+        <h3>🏦 PE Portfolio Operators</h3>
+        <p>Managing partner overseeing 3–6 portfolio companies. Need weekly accountability signals across each company. Board reporting is manual and slow — Taskora automates the view.</p>
+        <div class="vertical-tag">→ Board pack export + multi-entity dashboard</div>
+      </div>
+      <div class="vertical-card">
+        <h3>🏪 Franchise Operators</h3>
+        <p>Running 5–30 locations. Each location manager is accountable. No consistent visibility without visiting each site. The Locations module gives you every site on one screen.</p>
+        <div class="vertical-tag">→ Multi-location tracking + site-level tasks</div>
+      </div>
+      <div class="vertical-card">
+        <h3>⚖️ Multi-Office Professional Services</h3>
+        <p>Law firms, accounting practices, consulting firms with 3–10 offices. MD needs visibility across offices and client-facing teams without micromanaging each one.</p>
+        <div class="vertical-tag">→ BU-level accountability + role-based access</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TRUST / SECURITY ── -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Trust &amp; Security</div>
+      <div class="section-title">Enterprise-grade from <em class="serif">day one.</em></div>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-item">
+        <span class="icon">🔒</span>
+        <h4>Row-Level Security</h4>
+        <p>Supabase RLS ensures tenants can never access each other's data. Zero cross-tenant exposure.</p>
+      </div>
+      <div class="trust-item">
+        <span class="icon">🔐</span>
+        <h4>Encrypted at Rest</h4>
+        <p>All data encrypted with AES-256 at rest and TLS 1.3 in transit. Hosted on SOC 2 certified infrastructure.</p>
+      </div>
+      <div class="trust-item">
+        <span class="icon">🌍</span>
+        <h4>GDPR Compliant</h4>
+        <p>Data processing agreements available. Cookie notice and privacy policy built in. Right to erasure supported.</p>
+      </div>
+      <div class="trust-item">
+        <span class="icon">🔑</span>
+        <h4>MFA / 2FA</h4>
+        <p>TOTP-based two-factor authentication via Supabase Auth. Enforce MFA across your entire organisation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-box">
+      <div class="section-label">Get Started</div>
+      <div class="cta-title">Replace your status calls<br/>with <em class="serif">accountability signals.</em></div>
+      <p class="cta-sub">60-day free trial. No credit card. Set up in 10 minutes. See your entire organisation from one screen by tomorrow morning.</p>
+      <a href="/app/" class="btn-primary" style="font-size:16px;padding:16px 40px">Start your free trial →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">Taskora · A <a href="https://deftai.in" style="color:var(--accent2)">Deft AI</a> product · © 2026</div>
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/security">Security</a>
+        <a href="mailto:hello@deftai.in">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
 
 <script>
-/* ═══════════════════════════════════════════════════════
-   TASKORA — EXECUTIVE OPERATING SYSTEM
-   Full codebase with all upgrades applied
-   ═══════════════════════════════════════════════════════ */
+// Nav scroll effect
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+});
 
-/* ── SUPABASE ── */
-const SB = supabase.createClient(
-  'https://blvijiqrgddvparsnpnh.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsdmlqaXFyZ2RkdnBhcnNucG5oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3ODc4NTAsImV4cCI6MjA5MDM2Mzg1MH0.J9wB4a384TRLfISIQC35pn5no-Pp52iZoB8fBiEExj8'
-);
-
-/* ── PLATFORM ── */
-const PLATFORM_OWNER_EMAIL = 'engineeradityasingh@gmail.com';
-const PLATFORM_FN_URL = 'https://blvijiqrgddvparsnpnh.supabase.co/functions/v1/platform-admin';
-let IS_PLATFORM_OWNER = false;
-
-/* ── LOCALE (configurable, defaults to en-US) ── */
-const LOCALE = localStorage.getItem('taskora-locale') || 'en-US';
-
-/* ── TRIAL CONFIG ── */
-const TRIAL_DAYS = 60;
-
-/* ── THEME ── */
-(function() {
-  const saved = localStorage.getItem('taskora-theme');
-  if (saved === 'dark') document.documentElement.classList.add('dark');
-})();
-
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem('taskora-theme', isDark ? 'dark' : 'light');
-  updateThemeBtn(isDark);
-}
-
-function updateThemeBtn(isDark) {
-  const icon  = document.getElementById('theme-icon');
-  const label = document.getElementById('theme-label');
-  if (icon)  icon.textContent  = isDark ? '☾' : '☀';
-  if (label) label.textContent = isDark ? 'Dark mode' : 'Light mode';
-}
-
-/* ── CONSTANTS ── */
-const TS = {
-  not_started: {l:'Not started', bg:'rgba(148,163,184,.12)', c:'#94a3b8'},
-  in_progress:  {l:'In progress', bg:'rgba(245,158,11,.12)',  c:'#f59e0b'},
-  blocked:      {l:'Blocked',     bg:'rgba(244,63,94,.14)',   c:'#f43f5e'},
-  awaiting:     {l:'Awaiting',    bg:'rgba(168,85,247,.14)',  c:'#c084fc'},
-  done:         {l:'Done',        bg:'rgba(16,185,129,.14)',  c:'#10b981'},
-  deferred:     {l:'Deferred',    bg:'rgba(100,116,139,.1)',  c:'#64748b'},
-};
-const BS = {
-  not_started: {l:'Not started', bg:'rgba(148,163,184,.12)', c:'#94a3b8'},
-  in_progress:  {l:'In progress', bg:'rgba(245,158,11,.12)',  c:'#f59e0b'},
-  on_hold:      {l:'On hold',     bg:'rgba(251,146,60,.12)',  c:'#fb923c'},
-  blocked:      {l:'Blocked',     bg:'rgba(244,63,94,.14)',   c:'#f43f5e'},
-  done:         {l:'Done',        bg:'rgba(16,185,129,.14)',  c:'#10b981'},
-};
-const HS = {
-  on_track:    {l:'On Track',    cls:'h-ot'},
-  at_risk:     {l:'At Risk',     cls:'h-ar'},
-  delayed:     {l:'Delayed',     cls:'h-dl'},
-  not_started: {l:'Not Started', cls:'h-ns'},
-};
-const PS = {
-  critical: {l:'Critical', cls:'p-cr'},
-  high:     {l:'High',     cls:'p-hi'},
-  medium:   {l:'Medium',   cls:'p-me'},
-  low:      {l:'Low',      cls:'p-lo'},
-};
-const PR  = {high:{l:'High',c:'#f43f5e'}, medium:{l:'Med',c:'#f59e0b'}, low:{l:'Low',c:'#10b981'}};
-const CLRS = ['#6366f1','#14b8a6','#10b981','#f43f5e','#f59e0b','#a855f7','#ec4899','#0ea5e9','#f97316','#06b6d4'];
-const SCYC = ['not_started','in_progress','awaiting','blocked','done'];
-
-/* ── ROLE LABELS (updated terminology) ── */
-const ROLE_LABELS = {super_admin:'Admin', primary_stakeholder:'BU Lead', member:'Team Member'};
-const ROLE_COLORS = {super_admin:'var(--ind-l)', primary_stakeholder:'var(--teal)', member:'var(--txt3)'};
-const ROLE_BGS    = {super_admin:'#EFF6FF', primary_stakeholder:'#F0FDFA', member:'var(--glass2)'};
-const ROLE_BDRS   = {super_admin:'#BFDBFE', primary_stakeholder:'#99F6E4', member:'var(--bdr)'};
-
-/* ── DATE HELPERS (locale-aware) ── */
-const tday  = () => new Date().toISOString().slice(0,10);
-const tmrDay = () => { const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); };
-const fd    = d => d ? new Date(d+'T12:00:00').toLocaleDateString(LOCALE,{day:'numeric',month:'short'}) : '';
-const isOD  = (d,s) => !!(d && d < tday() && s !== 'done');
-const nowFull = () => new Date().toLocaleDateString(LOCALE,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const val   = id => { const e=document.getElementById(id); return e ? e.value : ''; };
-const valR  = name => { const e=document.querySelector('input[name="'+name+'"]:checked'); return e ? e.value : ''; };
-const bdg   = (s,sys) => { const i=(sys||TS)[s]||TS.not_started; return '<span class="bd" style="background:'+i.bg+';color:'+i.c+'">'+i.l+'</span>'; };
-const hBdg  = h => { const i=HS[h]||HS.on_track; return '<span class="bd '+i.cls+'">'+i.l+'</span>'; };
-const pBdg  = p => { const i=PS[p]||PS.medium;   return '<span class="bd '+i.cls+'">'+i.l+'</span>'; };
-const av    = (n,c,sz) => {
-  sz = sz||30;
-  const initials = (n||'?').trim().split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-  return '<div class="av" style="width:'+sz+'px;height:'+sz+'px;background:'+(c||'#6366f1')+';font-size:'+(sz*.36)+'px">'+initials+'</div>';
-};
-
-/* ── STATE ── */
-let U = null, curTab = 'dash';
-let MY_ROLE = 'super_admin';
-let MY_PERSON_ID = null;
-let CHAIRMAN_UID = null;
-let expP = {}, expS = {}, ganttP = {}, bSrch = '', bCity = '', bType = '', pFil = 'active', projView = 'list';
-let _dashOwner = '__all__';
-let bulkMode = false, selTasks = new Set();
-let notifCount = 0;
-let DB = {
-  buildings:[], people:[], projects:[], milestones:[], tasks:[],
-  pb:[], de:{}, templates:[], docs:[], notifications:[], schedule:null,
-  themes:[], programs:[], decisions:[]
-};
-
-/* ── SYNC ── */
-function ss(s) {
-  const d = document.getElementById('sd');
-  if (!d) return;
-  d.className = 'sdot' + (s==='sy' ? ' sy' : s==='er' ? ' er' : '');
-}
-
-async function load() {
-  if (!U) return;
-  ss('sy');
-  try {
-    const uid = CHAIRMAN_UID || U.id;
-    const myUid = U.id;
-    const [b,p,pr,ms,t,pb,de,th,prog,tpl,docs,notifs,sched,decisions] = await Promise.all([
-      SB.from('buildings').select('*').eq('user_id',uid).order('serial'),
-      SB.from('people').select('*').eq('user_id',uid).order('name'),
-      SB.from('projects').select('*').eq('user_id',uid).order('created_at'),
-      SB.from('sub_projects').select('*').eq('user_id',uid).order('seq').order('created_at'),
-      SB.from('tasks').select('*').eq('user_id',uid).order('created_at'),
-      SB.from('project_buildings').select('*').eq('user_id',uid),
-      SB.from('digest_edits').select('*').eq('user_id',uid),
-      SB.from('themes').select('*').eq('user_id',uid).order('seq').order('created_at'),
-      SB.from('programs').select('*').eq('user_id',uid).order('seq').order('created_at'),
-      SB.from('project_templates').select('*').eq('user_id',CHAIRMAN_UID||U.id).order('created_at'),
-      SB.from('documents').select('*').eq('workspace_id',uid),
-      SB.from('notifications').select('*').eq('for_user_id',myUid).order('created_at',{ascending:false}).limit(50),
-      SB.from('digest_schedule').select('*').eq('chairman_id',CHAIRMAN_UID||U.id).maybeSingle(),
-      SB.from('decision_log').select('*').eq('workspace_id',uid).order('created_at',{ascending:false}),
-    ]);
-    DB.buildings  = (b.data||[]).map(x => ({...x, softHandover:x.soft_handover, hardHandover:x.hard_handover, btype:x.btype||'operational'}));
-    DB.people     = p.data||[];
-    DB.projects   = (pr.data||[]).map(x => ({...x, desc:x.description, primaryOwnerId:x.primary_stakeholder_id, health:x.health||'on_track', priority:x.priority||'medium', programId:x.program_id}));
-    DB.milestones = (ms.data||[]).map(x => ({...x, projectId:x.project_id}));
-    DB.tasks      = (t.data||[]).map(x => ({...x, projectId:x.project_id, milestoneId:x.sub_project_id, buildingRefId:x.project_building_id, assignedTo:x.assigned_to, dueDate:x.due_date, followUp:x.follow_up, dependsOn:x.depends_on||[], recurringMeeting:x.recurring_meeting||false, meetingFrequency:x.meeting_frequency||'weekly', lastMeetingAt:x.last_meeting_at, nextMeetingAt:x.next_meeting_at}));
-    DB.pb         = (pb.data||[]).map(x => ({...x, projectId:x.project_id, buildingId:x.building_id, targetCompletion:x.target_completion, secondaryOwnerId:x.secondary_owner_id}));
-    const ed = {};
-    (de.data||[]).forEach(x => { ed[x.person_id] = x.content; });
-    DB.de = ed;
-    DB.themes       = (th.data||[]).map(x=>({...x}));
-    DB.programs     = (prog.data||[]).map(x=>({...x, themeId:x.theme_id, primaryOwnerId:x.primary_stakeholder_id}));
-    DB.templates    = tpl.data||[];
-    DB.docs         = docs.data||[];
-    DB.notifications= notifs.data||[];
-    DB.schedule     = sched.data||null;
-    DB.decisions    = decisions.data||[];
-    notifCount      = DB.notifications.filter(n=>!n.read).length;
-    updateNotifBadge();
-    ss('ok');
-  } catch(e) { console.error(e); ss('er'); }
-}
-
-async function delRow(tbl, id) {
-  ss('sy');
-  const r = await SB.from(tbl).delete().eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-  ss(r.error ? 'er' : 'ok');
-  return r;
-}
-
-/* ── AUTH ── */
-function amsg(m, ok) {
-  const el = document.getElementById('amsg');
-  if (el) el.innerHTML = '<div class="amsg '+(ok?'ok':'err')+'">'+m+'</div>';
-}
-function swAT(t) {
-  const si = t==='si';
-  document.getElementById('at-si').classList.toggle('on', si);
-  document.getElementById('at-su').classList.toggle('on', !si);
-  document.getElementById('form-si').style.display = si ? '' : 'none';
-  document.getElementById('form-su').style.display = si ? 'none' : '';
-  document.getElementById('amsg').innerHTML = '';
-}
-
-/* ── GOOGLE SSO ── */
-async function doGoogleSSO() {
-  const {error} = await SB.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
-  });
-  if (error) amsg('Google sign-in failed: ' + error.message);
-}
-
-async function doSI() {
-  const email=val('si-em').trim(), pass=val('si-pw');
-  if (!email||!pass) { amsg('Please enter email and password.'); return; }
-  const btn = document.querySelector('#form-si .btn-p');
-  if (btn) { btn.disabled=true; btn.textContent='Signing in…'; }
-  const {error} = await SB.auth.signInWithPassword({email, password:pass});
-  if (btn) { btn.disabled=false; btn.textContent='Sign in →'; }
-  if (error) amsg(error.message==='Invalid login credentials' ? 'Incorrect email or password.' : error.message);
-}
-async function doSU() {
-  const email=val('su-em').trim(), pass=val('su-pw');
-  if (!email||!pass) { amsg('Please fill all fields.'); return; }
-  if (pass.length<8) { amsg('Password must be at least 8 characters.'); return; }
-  const btn = document.querySelector('#form-su .btn-p');
-  if (btn) { btn.disabled=true; btn.textContent='Creating…'; }
-  const {error} = await SB.auth.signUp({email, password:pass});
-  if (btn) { btn.disabled=false; btn.textContent='Create account →'; }
-  if (error) amsg(error.message);
-}
-async function doSO() { await SB.auth.signOut(); }
-
-/* ── BOOT ── */
-async function boot() {
-  const {data:{session}} = await SB.auth.getSession();
-  document.getElementById('ls').style.opacity = '0';
-  setTimeout(() => { document.getElementById('ls').style.display='none'; }, 300);
-  if (session) { U=session.user; showApp(); }
-  else { document.getElementById('auth-scr').style.display='flex'; }
-
-  SB.auth.onAuthStateChange(async (ev, ses) => {
-    if (ses) {
-      U = ses.user;
-      document.getElementById('auth-scr').style.display = 'none';
-      showApp();
-    } else {
-      U = null;
-      document.getElementById('root').style.display = 'none';
-      DB = {buildings:[],people:[],projects:[],milestones:[],tasks:[],pb:[],de:{},decisions:[]};
-      document.getElementById('auth-scr').style.display = 'flex';
+// Simple scroll-triggered animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.animation = 'fadeUp .6s cubic-bezier(.16,1,.3,1) both';
+      observer.unobserve(e.target);
     }
   });
-}
-
-async function showApp() {
-  document.getElementById('root').style.display = '';
-  const email = U.email||'';
-  document.getElementById('uem').textContent = email;
-  document.getElementById('sb-name').textContent = U.user_metadata?.display_name||email.split('@')[0]||'Account';
-  document.getElementById('sb-av').textContent = email.slice(0,2).toUpperCase();
-  updateThemeBtn(document.documentElement.classList.contains('dark'));
-  IS_PLATFORM_OWNER = (U.email === PLATFORM_OWNER_EMAIL);
-
-  // Role detection
-  const {data:accessRow} = await SB.from('workspace_access')
-    .select('*').eq('member_user_id', U.id).maybeSingle();
-
-  if (accessRow) {
-    MY_ROLE        = accessRow.role_level || 'member';
-    MY_PERSON_ID   = accessRow.person_id;
-    CHAIRMAN_UID   = accessRow.chairman_user_id;
-  } else {
-    MY_ROLE      = 'super_admin';
-    MY_PERSON_ID = null;
-    CHAIRMAN_UID = U.id;
-  }
-
-  await load();
-
-  // Auto-accept invites
-  if (email) {
-    const matched = DB.people.filter(p => p.email && p.email.toLowerCase()===email.toLowerCase() && p.invite_status==='pending');
-    for (const person of matched) {
-      await SB.from('people').update({invite_status:'accepted'}).eq('id', person.id);
-      person.invite_status = 'accepted';
-      if (!accessRow && person.user_id) {
-        await SB.from('workspace_access').upsert({
-          chairman_user_id: person.user_id,
-          member_user_id: U.id,
-          role_level: person.role_level||'member',
-          person_id: person.id,
-        }, {onConflict:'chairman_user_id,member_user_id'});
-      }
-    }
-  }
-
-  await checkTeamRequests();
-  checkRecurringMeetingReminders();
-
-  // Check if onboarding needed (new account with no data)
-  const isNewAccount = MY_ROLE === 'super_admin' && !DB.projects.length && !DB.people.length && !localStorage.getItem('taskora-onboarded-'+U.id);
-  if (isNewAccount) {
-    showOnboarding();
-  }
-
-  buildNav();
-  renderTrialBar();
-  renderTab(curTab);
-}
-
-/* ═══════════════════════════════════════════════════════
-   TRIAL COUNTDOWN
-   ═══════════════════════════════════════════════════════ */
-function renderTrialBar() {
-  const wrap = document.getElementById('trial-bar-wrap');
-  if (!wrap) return;
-  // Calculate trial days remaining from account creation
-  const created = U?.created_at ? new Date(U.created_at) : new Date();
-  const now = new Date();
-  const elapsed = Math.floor((now - created) / 86400000);
-  const remaining = Math.max(0, TRIAL_DAYS - elapsed);
-
-  // Don't show for platform owner or if trial is well past
-  if (IS_PLATFORM_OWNER) { wrap.innerHTML=''; return; }
-
-  const cls = remaining <= 0 ? 'expired' : remaining <= 7 ? 'expiring' : '';
-  const label = remaining <= 0 ? 'Trial expired' : remaining + ' day'+(remaining!==1?'s':'')+' left in trial';
-
-  wrap.innerHTML = '<div class="trial-bar '+cls+'" onclick="showUpgradePrompt()">'
-    +'<div class="trial-days">'+(remaining <= 0 ? '⚠ Upgrade' : remaining)+'</div>'
-    +'<div class="trial-label">'+label+'</div>'
-    +'</div>';
-}
-
-function showUpgradePrompt() {
-  let h = '<div style="text-align:center;padding:10px 0 16px">';
-  h += '<div style="font-size:36px;margin-bottom:10px">🚀</div>';
-  h += '<div style="font-size:16px;font-weight:700;margin-bottom:6px">Upgrade Taskora</div>';
-  h += '<div style="font-size:13px;color:var(--txt2);margin-bottom:20px">Choose a plan that fits your organisation.</div>';
-  h += '</div>';
-
-  // Pricing cards
-  const plans = [
-    {name:'Free',price:'$0',period:'forever',bus:'2 business units',members:'3 team members',features:['Executive Dashboard','In-app briefing','Basic reports'],btn:'Current plan',ghost:true},
-    {name:'Growth',price:'$149',period:'/month',bus:'8 business units',members:'25 team members',features:['Email + Slack briefing','Board pack PDF export','Decision log','Multi-location support','Gantt & timeline','MFA / 2FA'],btn:'Upgrade to Growth →',featured:true},
-    {name:'Scale',price:'$399',period:'/month',bus:'Unlimited BUs',members:'100 team members',features:['Everything in Growth','Google SSO','Priority support','Custom briefing cadence','API access','White-glove onboarding'],btn:'Contact sales →',ghost:true},
-  ];
-
-  h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">';
-  plans.forEach(p => {
-    const bdr = p.featured ? 'var(--ind-l)' : 'var(--bdr)';
-    const bg = p.featured ? 'rgba(37,99,235,.05)' : 'var(--glass)';
-    h += '<div style="padding:18px 16px;background:'+bg+';border:1px solid '+bdr+';border-radius:10px;position:relative">';
-    if (p.featured) h += '<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);padding:2px 10px;background:var(--ind-l);color:#fff;font-size:9px;font-weight:700;border-radius:99px;letter-spacing:.06em">RECOMMENDED</div>';
-    h += '<div style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">'+p.name+'</div>';
-    h += '<div style="font-size:28px;font-weight:800;color:var(--txt);letter-spacing:-.03em">'+p.price+'<span style="font-size:12px;color:var(--txt3);font-weight:400">'+p.period+'</span></div>';
-    h += '<div style="font-size:12px;color:var(--txt2);margin:8px 0 12px">'+p.bus+' · '+p.members+'</div>';
-    p.features.forEach(f => { h += '<div style="font-size:12px;color:var(--txt2);padding:3px 0;display:flex;align-items:center;gap:6px"><span style="color:var(--grn);font-weight:700;font-size:11px">✓</span>'+f+'</div>'; });
-    h += '<button style="width:100%;padding:10px;border-radius:8px;font-size:13px;font-weight:600;margin-top:14px;cursor:pointer;border:1px solid '+(p.featured?'var(--ind-d)':'var(--bdr)')+';background:'+(p.featured?'var(--ind-l)':'var(--glass)')+';color:'+(p.featured?'#fff':'var(--txt2)')+';font-family:inherit">'+p.btn+'</button>';
-    h += '</div>';
-  });
-  h += '</div>';
-  h += '<div style="text-align:center;margin-top:12px;font-size:11px;color:var(--txt3)">All paid plans include a 60-day free trial. Cancel anytime.</div>';
-
-  OS('Upgrade Plan', h, true);
-}
-
-/* ═══════════════════════════════════════════════════════
-   ONBOARDING WIZARD (5 steps)
-   ═══════════════════════════════════════════════════════ */
-let obStep = 0;
-let obData = { orgName:'', bus:[], firstBULead:{name:'',email:'',role:''}, firstInitiative:'', hasLocations:false };
-
-function showOnboarding() {
-  document.getElementById('onboarding-overlay').classList.add('show');
-  obStep = 0;
-  renderOBStep();
-}
-
-function renderOBStep() {
-  const card = document.getElementById('ob-card');
-  const totalSteps = 5;
-  let dots = '<div class="ob-step-dots">';
-  for(let i=0;i<totalSteps;i++) dots += '<div class="ob-dot'+(i<obStep?' done':i===obStep?' active':'')+'"></div>';
-  dots += '</div>';
-
-  let h = dots;
-
-  if (obStep === 0) {
-    h += '<div class="ob-title">Welcome to Taskora 👋</div>';
-    h += '<div class="ob-sub">Let\'s set up your executive operating system in 2 minutes.</div>';
-    h += '<div class="fg"><label class="fl">What\'s your organisation called?</label><input id="ob-org" class="gi" placeholder="e.g. Acme Holdings" value="'+esc(obData.orgName)+'"></div>';
-    h += '<div class="ob-actions"><button class="btn btn-p" onclick="obNext()">Next →</button></div>';
-  } else if (obStep === 1) {
-    h += '<div class="ob-title">Your Business Units</div>';
-    h += '<div class="ob-sub">What divisions, companies, or departments do you oversee?</div>';
-    h += '<div id="ob-bu-list">';
-    obData.bus.forEach((bu,i) => {
-      h += '<div style="display:flex;gap:8px;margin-bottom:6px"><input class="gi" style="margin:0;flex:1" placeholder="e.g. Operations, Sales, Logistics" value="'+esc(bu)+'" oninput="obData.bus['+i+']=this.value"><button onclick="obData.bus.splice('+i+',1);renderOBStep()" style="background:none;border:none;color:var(--txt3);cursor:pointer;font-size:16px">×</button></div>';
-    });
-    h += '</div>';
-    h += '<button onclick="obData.bus.push(\'\');renderOBStep()" style="width:100%;padding:8px;border:1px dashed var(--bdr2);border-radius:var(--r-sm);background:none;color:var(--ind-l);font-size:12px;cursor:pointer;margin-bottom:14px">+ Add business unit</button>';
-    h += '<div class="ob-actions"><button class="btn btn-g" onclick="obStep--;renderOBStep()">← Back</button><button class="btn btn-p" onclick="obNext()">Next →</button></div>';
-  } else if (obStep === 2) {
-    h += '<div class="ob-title">Add Your First BU Lead</div>';
-    h += '<div class="ob-sub">Who\'s accountable for one of your business units? You can add more later.</div>';
-    h += '<div class="fg"><label class="fl">Full name</label><input id="ob-lead-name" class="gi" placeholder="e.g. Sarah Park" value="'+esc(obData.firstBULead.name)+'"></div>';
-    h += '<div class="fg"><label class="fl">Email</label><input id="ob-lead-email" class="gi" type="email" placeholder="sarah@company.com" value="'+esc(obData.firstBULead.email)+'"></div>';
-    h += '<div class="fg"><label class="fl">Role / title</label><input id="ob-lead-role" class="gi" placeholder="e.g. VP Operations" value="'+esc(obData.firstBULead.role)+'"></div>';
-    h += '<div class="ob-actions"><button class="btn btn-g" onclick="obStep--;renderOBStep()">← Back</button><button class="btn btn-p" onclick="obNext()">Next →</button></div>';
-  } else if (obStep === 3) {
-    h += '<div class="ob-title">Create Your First Initiative</div>';
-    h += '<div class="ob-sub">What\'s one strategic initiative you\'re tracking right now?</div>';
-    h += '<div class="fg"><label class="fl">Initiative name</label><input id="ob-init" class="gi" placeholder="e.g. Q2 Product Launch, New Market Entry" value="'+esc(obData.firstInitiative)+'"></div>';
-    h += '<div class="ob-actions"><button class="btn btn-g" onclick="obStep--;renderOBStep()">← Back</button><button class="btn btn-p" onclick="obNext()">Next →</button></div>';
-  } else if (obStep === 4) {
-    h += '<div class="ob-title">Do you have physical locations?</div>';
-    h += '<div class="ob-sub">Offices, stores, sites, or branches? If yes, we\'ll enable the Locations module.</div>';
-    h += '<div style="display:flex;gap:10px;margin-bottom:14px">';
-    h += '<button onclick="obData.hasLocations=true;renderOBStep()" style="flex:1;padding:16px;border-radius:10px;border:2px solid '+(obData.hasLocations?'var(--ind-l)':'var(--bdr)')+';background:'+(obData.hasLocations?'rgba(37,99,235,.08)':'var(--glass)')+';cursor:pointer;text-align:center"><div style="font-size:20px;margin-bottom:6px">🏢</div><div style="font-size:13px;font-weight:600;color:var(--txt)">Yes, I have locations</div></button>';
-    h += '<button onclick="obData.hasLocations=false;renderOBStep()" style="flex:1;padding:16px;border-radius:10px;border:2px solid '+(!obData.hasLocations?'var(--ind-l)':'var(--bdr)')+';background:'+(!obData.hasLocations?'rgba(37,99,235,.08)':'var(--glass)')+';cursor:pointer;text-align:center"><div style="font-size:20px;margin-bottom:6px">💻</div><div style="font-size:13px;font-weight:600;color:var(--txt)">No, fully remote / digital</div></button>';
-    h += '</div>';
-    h += '<div class="ob-actions"><button class="btn btn-g" onclick="obStep--;renderOBStep()">← Back</button><button class="btn btn-p" onclick="finishOnboarding()">Launch Taskora →</button></div>';
-  }
-
-  card.innerHTML = h;
-  // Auto-add first BU row
-  if (obStep === 1 && !obData.bus.length) { obData.bus.push(''); renderOBStep(); }
-}
-
-function obNext() {
-  if (obStep === 0) {
-    obData.orgName = val('ob-org').trim();
-    if (!obData.orgName) { showToast('Please enter your org name','err'); return; }
-  } else if (obStep === 2) {
-    obData.firstBULead.name = val('ob-lead-name').trim();
-    obData.firstBULead.email = val('ob-lead-email').trim();
-    obData.firstBULead.role = val('ob-lead-role').trim();
-  } else if (obStep === 3) {
-    obData.firstInitiative = val('ob-init').trim();
-  }
-  obStep++;
-  renderOBStep();
-}
-
-async function finishOnboarding() {
-  const uid = CHAIRMAN_UID || U.id;
-  // Save org name in user metadata
-  await SB.auth.updateUser({data:{display_name:obData.orgName, has_locations:obData.hasLocations}});
-  document.getElementById('sb-name').textContent = obData.orgName;
-  localStorage.setItem('taskora-has-locations', obData.hasLocations ? '1' : '0');
-
-  // Create BUs as themes
-  const validBUs = obData.bus.filter(b => b.trim());
-  for (const buName of validBUs) {
-    const {data} = await SB.from('themes').insert({user_id:uid, name:buName.trim(), status:'active', color:CLRS[DB.themes.length % CLRS.length], seq:DB.themes.length}).select().single();
-    if (data) DB.themes.push(data);
-  }
-
-  // Create first BU lead
-  if (obData.firstBULead.name) {
-    const personObj = {
-      user_id:uid, name:obData.firstBULead.name,
-      email:obData.firstBULead.email||null,
-      role:obData.firstBULead.role||'',
-      role_level:'primary_stakeholder',
-      invite_status:obData.firstBULead.email?'pending':'accepted',
-      color:CLRS[Math.floor(Math.random()*CLRS.length)]
-    };
-    const {data:person} = await SB.from('people').insert(personObj).select().single();
-    if (person) {
-      DB.people.push(person);
-      // Send invite if email provided
-      if (obData.firstBULead.email) {
-        await SB.from('team_requests').insert({
-          chairman_id:uid, person_id:person.id,
-          invitee_email:obData.firstBULead.email,
-          chairman_name:obData.orgName, status:'pending'
-        });
-      }
-    }
-  }
-
-  // Create first initiative
-  if (obData.firstInitiative) {
-    const projObj = {
-      user_id:uid, name:obData.firstInitiative,
-      status:'not_started', health:'on_track', priority:'medium',
-      primary_stakeholder_id:DB.people[0]?.id||null,
-      color:CLRS[Math.floor(Math.random()*CLRS.length)]
-    };
-    const {data:proj} = await SB.from('projects').insert(projObj).select().single();
-    if (proj) DB.projects.push({...proj, primaryOwnerId:proj.primary_stakeholder_id, desc:proj.description, health:proj.health, priority:proj.priority, programId:proj.program_id});
-  }
-
-  // Mark onboarding complete
-  localStorage.setItem('taskora-onboarded-'+U.id, '1');
-  document.getElementById('onboarding-overlay').classList.remove('show');
-
-  // Rebuild nav and render
-  buildNav();
-  renderTrialBar();
-  renderTab('dash');
-  showToast('Welcome to Taskora! 🎉', 'ok');
-}
-
-function updateNotifBadge() {
-  document.querySelectorAll('.notif-badge').forEach(el => {
-    el.style.display = notifCount > 0 ? 'flex' : 'none';
-    el.textContent = notifCount > 9 ? '9+' : String(notifCount);
-  });
-}
-
-/* ═══════════════════════════════════════════════════════
-   NAVIGATION (with updated terminology)
-   ═══════════════════════════════════════════════════════ */
-function buildNav() {
-  const isSuper   = MY_ROLE === 'super_admin';
-  const isPrimary = MY_ROLE === 'primary_stakeholder';
-  const nb = '<span class="notif-badge"></span>';
-  const showLocations = localStorage.getItem('taskora-has-locations') === '1' || DB.buildings.length > 0;
-
-  const sbNav = document.querySelector('.sb-nav');
-  if (sbNav) {
-    sbNav.innerHTML =
-      '<button class="sb-b active" data-tab="dash"><span class="ic">⌂</span> '+(isSuper?'Executive Dashboard':'My Dashboard')+'</button>'+
-      '<button class="sb-b" data-tab="portfolio"><span class="ic">🗂</span> Org Structure</button>'+
-      '<button class="sb-b" data-tab="projects"><span class="ic">📋</span> Initiatives</button>'+
-      (isSuper||isPrimary ? '<button class="sb-b" data-tab="people"><span class="ic">👥</span> People &amp; Roles</button>' : '')+
-      (isSuper && showLocations ? '<button class="sb-b" data-tab="buildings"><span class="ic">🏢</span> Locations</button>' : '')+
-      (isSuper ? '<button class="sb-b" data-tab="decisions"><span class="ic">📝</span> Decision Log</button>' : '')+
-      (isSuper ? '<button class="sb-b" data-tab="digest"><span class="ic">📤</span> Daily Briefing</button>' : '')+
-      '<button class="sb-b" data-tab="notifications" style="position:relative"><span class="ic">🔔</span> Notifications'+nb+'</button>'+
-      (isSuper ? '<button class="sb-b" data-tab="analytics"><span class="ic">📊</span> Analytics</button>' : '')+
-      (isSuper||isPrimary ? '<button class="sb-b" data-tab="reports"><span class="ic">📈</span> Reports</button>' : '')+
-      (isSuper ? '<button class="sb-b" data-tab="roles"><span class="ic">🔑</span> Roles &amp; Access</button>' : '')+
-      (IS_PLATFORM_OWNER ? '<div class="sb-div"></div><button class="sb-b" data-tab="platform" style="color:var(--ind-l);font-weight:600"><span class="ic">⚡</span> Platform Admin</button>' : '');
-  }
-  const bn = document.getElementById('bn');
-  if (bn) {
-    bn.innerHTML =
-      '<button class="nb active" data-tab="dash"><span class="ic">⌂</span><span class="lb">Home</span></button>'+
-      '<button class="nb" data-tab="portfolio"><span class="ic">🗂</span><span class="lb">Org</span></button>'+
-      '<button class="nb" data-tab="projects"><span class="ic">📋</span><span class="lb">Initiatives</span></button>'+
-      (isSuper||isPrimary ? '<button class="nb" data-tab="people"><span class="ic">👥</span><span class="lb">People</span></button>' : '')+
-      (isSuper||isPrimary ? '<button class="nb" data-tab="reports"><span class="ic">📈</span><span class="lb">Reports</span></button>' : '')+
-      '<button class="nb" data-tab="notifications" style="position:relative"><span class="ic">🔔</span><span class="lb">Alerts</span>'+nb+'</button>'+
-      '<button class="nb" onclick="openProfile()"><span class="ic">👤</span><span class="lb">Me</span></button>';
-  }
-  // Ensure tab containers exist
-  ['roles','notifications','analytics','portfolio','platform','reports','decisions'].forEach(id => {
-    if (!document.getElementById('tab-'+id)) {
-      const d = document.createElement('div'); d.id='tab-'+id; d.className='page';
-      document.getElementById('content').appendChild(d);
-    }
-  });
-  updateNotifBadge();
-  document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
-    b.addEventListener('click', () => switchTab(b.dataset.tab));
-  });
-}
-
-function switchTab(id) {
-  curTab = id;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const tabEl = document.getElementById('tab-'+id);
-  if (tabEl) tabEl.classList.add('active');
-  document.querySelectorAll('.sb-b[data-tab],.nb[data-tab]').forEach(b => {
-    b.classList.toggle('active', b.dataset.tab===id);
-  });
-  renderTab(id);
-}
-
-function renderTab(id) {
-  if      (id==='dash')          rDash();
-  else if (id==='portfolio')     rPortfolio();
-  else if (id==='projects')      rProj();
-  else if (id==='people')        rPpl();
-  else if (id==='buildings')     rBld();
-  else if (id==='digest')        rDig();
-  else if (id==='roles')         rRoles();
-  else if (id==='notifications') rNotifications();
-  else if (id==='analytics')     rAnalytics();
-  else if (id==='platform')      rPlatformAdmin();
-  else if (id==='reports')       rReports();
-  else if (id==='decisions')     rDecisions();
-}
-
-/* ── SHEET ── */
-function OS(ti, html, wide) {
-  document.getElementById('sh-ti').textContent = ti;
-  document.getElementById('sh-bd').innerHTML = html;
-  document.getElementById('sh').classList.toggle('wide', !!wide);
-  document.getElementById('ov').classList.add('op');
-}
-function CS() { document.getElementById('ov').classList.remove('op'); }
-document.getElementById('ov').addEventListener('click', e => { if (e.target===document.getElementById('ov')) CS(); });
-
-/* ── HELPERS ── */
-function CP(fid, cur) {
-  const swatches = CLRS.map(c => {
-    const on = c===cur ? ' on' : '';
-    return '<div class="sw'+on+'" style="background:'+c+'" onclick="SC(\''+fid+'\',\''+c+'\')"></div>';
-  }).join('');
-  return '<div class="fg"><label class="fl">Colour</label><div class="sw-wrap">'+swatches+'</div><input type="hidden" id="'+fid+'" value="'+(cur||CLRS[0])+'"></div>';
-}
-function SC(fid, color) {
-  document.getElementById(fid).value = color;
-  document.querySelectorAll('#sh-bd .sw').forEach(s => {
-    s.classList.toggle('on', s.getAttribute('onclick').includes("'"+color+"'"));
-  });
-}
-function selOpts(id, cur, map) {
-  const opts = Object.entries(map).map(([k,v]) => '<option value="'+k+'"'+(k===cur?' selected':'')+'>'+(v.l||v)+'</option>').join('');
-  return '<select id="'+id+'" class="gi">'+opts+'</select>';
-}
-function peopleOpts(cur, emptyLabel) {
-  const empty = '<option value="">'+(emptyLabel||'— None —')+'</option>';
-  const opts  = DB.people.map(p => '<option value="'+p.id+'"'+(p.id===cur?' selected':'')+'>'+esc(p.name)+(p.role?' ('+esc(p.role)+')':'')+'</option>').join('');
-  return empty+opts;
-}
-function timeAgo(ts) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const m = Math.floor(diff/60000);
-  if (m < 1)  return 'just now';
-  if (m < 60) return m+'m ago';
-  const h = Math.floor(m/60);
-  if (h < 24) return h+'h ago';
-  return Math.floor(h/24)+'d ago';
-}
-
-function showToast(msg, type) {
-  const existing = document.getElementById('_toast');
-  if (existing) existing.remove();
-  const t = document.createElement('div');
-  t.id = '_toast';
-  t.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:800;padding:10px 20px;border-radius:99px;font-size:13px;font-weight:600;color:#fff;white-space:nowrap;animation:fadeIn .2s;box-shadow:0 4px 20px rgba(0,0,0,.4);pointer-events:none';
-  t.style.background = type === 'ok' ? 'var(--grn)' : type === 'err' ? 'var(--rose)' : 'var(--ind)';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => { if (t.parentNode) t.remove(); }, 2800);
-}
-
-/* ═══════════════════════════════════════════════════════
-   DECISION LOG — New Feature
-   ═══════════════════════════════════════════════════════ */
-function rDecisions() {
-  const el = document.getElementById('tab-decisions');
-  if (!el) return;
-  if (MY_ROLE !== 'super_admin') {
-    el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Admin only</div></div>';
-    return;
-  }
-
-  let h = '<div class="ph"><div><div class="pt">Decision Log</div><div class="ps">Record decisions made in review meetings</div></div>';
-  h += '<button class="btn btn-p btn-sm" onclick="oDecisionF()">+ Log decision</button></div>';
-
-  // Filter by initiative
-  const projsWithDecisions = [...new Set(DB.decisions.map(d=>d.initiative_id))];
-  h += '<div class="pls">';
-  h += '<button class="pl active" onclick="filterDecisions(\'all\')">All</button>';
-  DB.projects.filter(p=>p.status!=='done').forEach(p => {
-    h += '<button class="pl" onclick="filterDecisions(\''+p.id+'\')">'+esc(p.name)+'</button>';
-  });
-  h += '</div>';
-
-  if (!DB.decisions.length) {
-    h += '<div class="es"><span class="em">📝</span><div class="et">No decisions logged yet</div><div class="ed">Record decisions from your review meetings. Each decision links to an initiative and tracks who made it and what it unblocks.</div></div>';
-  } else {
-    DB.decisions.forEach(d => {
-      const proj = DB.projects.find(p=>p.id===d.initiative_id);
-      const person = DB.people.find(p=>p.id===d.made_by_id);
-      h += '<div class="dl-entry">';
-      h += '<div class="dl-date">'+fd(d.decision_date || (d.created_at||'').slice(0,10))+' · '+(proj?esc(proj.name):'General')+'</div>';
-      h += '<div class="dl-text">'+esc(d.decision_text)+'</div>';
-      h += '<div class="dl-meta">';
-      if (person) h += '<span>Made by: <strong>'+esc(person.name)+'</strong></span>';
-      if (d.unblocks) h += '<span style="color:var(--grn)">Unblocks: '+esc(d.unblocks)+'</span>';
-      h += '<span style="margin-left:auto;display:flex;gap:4px">';
-      h += '<button class="mb" style="font-size:11px;padding:2px 7px" onclick="oDecisionF(\''+d.id+'\')">✎</button>';
-      h += '<button class="mb dd" style="font-size:11px;padding:2px 7px" onclick="delDecision(\''+d.id+'\')">×</button>';
-      h += '</span></div></div>';
-    });
-  }
-
-  el.innerHTML = h;
-}
-
-function oDecisionF(id) {
-  const d = id ? DB.decisions.find(x=>x.id===id) : null;
-  let h = '<div class="fg"><label class="fl">Initiative</label><select id="dc-proj" class="gi"><option value="">— General (no initiative) —</option>';
-  DB.projects.filter(p=>p.status!=='done').forEach(p => {
-    h += '<option value="'+p.id+'"'+(p.id===d?.initiative_id?' selected':'')+'>'+esc(p.name)+'</option>';
-  });
-  h += '</select></div>';
-  h += '<div class="fg"><label class="fl">Decision</label><textarea id="dc-text" class="gi" placeholder="What was decided? Be specific.">'+esc(d?.decision_text||'')+'</textarea></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Made by</label><select id="dc-by" class="gi">'+peopleOpts(d?.made_by_id,'— Select —')+'</select></div>';
-  h += '<div class="fg"><label class="fl">Date</label><input id="dc-date" class="gi" type="date" value="'+(d?.decision_date||tday())+'"></div></div>';
-  h += '<div class="fg"><label class="fl">What does this unblock?</label><input id="dc-unblocks" class="gi" placeholder="e.g. Marketing can now start campaign, Engineering can begin Phase 2" value="'+esc(d?.unblocks||'')+'"></div>';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svDecision(\''+(id||'')+'\')">Save decision</button></div>';
-  OS(id ? 'Edit decision' : 'Log decision', h);
-}
-
-async function svDecision(id) {
-  const text = val('dc-text').trim();
-  if (!text) { showToast('Decision text is required','err'); return; }
-  const obj = {
-    workspace_id: CHAIRMAN_UID||U.id,
-    initiative_id: val('dc-proj')||null,
-    decision_text: text,
-    made_by_id: val('dc-by')||null,
-    decision_date: val('dc-date')||tday(),
-    unblocks: val('dc-unblocks').trim()||null,
-  };
-  if (id) {
-    await SB.from('decision_log').update(obj).eq('id',id);
-    DB.decisions = DB.decisions.map(x=>x.id===id?{...x,...obj}:x);
-  } else {
-    const {data} = await SB.from('decision_log').insert(obj).select().single();
-    if (data) DB.decisions.unshift(data);
-  }
-  CS(); showToast('Decision logged ✓','ok'); rDecisions();
-}
-
-async function delDecision(id) {
-  if (!confirm('Delete this decision?')) return;
-  await SB.from('decision_log').delete().eq('id',id);
-  DB.decisions = DB.decisions.filter(d=>d.id!==id);
-  rDecisions();
-}
-
-/* ═══════════════════════════════════════════════════════
-   ROLE-BASED DATA FILTERS
-   ═══════════════════════════════════════════════════════ */
-function visibleProjects() {
-  const all = DB.projects;
-  if (MY_ROLE === 'super_admin') return all;
-  if (MY_ROLE === 'primary_stakeholder') return all.filter(p => p.primaryOwnerId === MY_PERSON_ID);
-  const myProjIds = new Set(DB.tasks.filter(t => t.assignedTo===MY_PERSON_ID).map(t => t.projectId));
-  return all.filter(p => myProjIds.has(p.id));
-}
-function visibleTasks(projIds) {
-  const all = DB.tasks.filter(t => !projIds || projIds.has(t.projectId));
-  if (MY_ROLE === 'super_admin') return all;
-  if (MY_ROLE === 'primary_stakeholder') return all;
-  return all.filter(t => t.assignedTo === MY_PERSON_ID);
-}
-
-/* ═══════════════════════════════════════════════════════
-   RECURRING MEETINGS
-   ═══════════════════════════════════════════════════════ */
-function checkRecurringMeetingReminders() {
-  const today = tday();
-  const overdueMeetings = DB.tasks.filter(t =>
-    t.recurringMeeting && t.status !== 'done' &&
-    t.nextMeetingAt && t.nextMeetingAt.slice(0,10) <= today
-  );
-  if (overdueMeetings.length && 'Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
-  if (overdueMeetings.length && 'Notification' in window && Notification.permission === 'granted') {
-    overdueMeetings.forEach(t => {
-      const proj = DB.projects.find(p => p.id === t.projectId);
-      new Notification('🔄 Meeting overdue: ' + t.title, {
-        body: (proj ? proj.name + ' · ' : '') + 'This recurring meeting is due.',
-        icon: '/icon-192.png'
-      });
-    });
-  }
-}
-
-async function markMeetingHeld(taskId) {
-  const t = DB.tasks.find(x => x.id === taskId);
-  if (!t) return;
-  const freq = t.meetingFrequency || 'weekly';
-  const freqDays = {daily:1, weekly:7, fortnightly:14, monthly:30};
-  const days = freqDays[freq] || 7;
-  const now = new Date();
-  const next = new Date(now); next.setDate(next.getDate() + days);
-  const obj = { last_meeting_at: now.toISOString(), next_meeting_at: next.toISOString() };
-  await SB.from('tasks').update(obj).eq('id', taskId).eq('user_id', CHAIRMAN_UID||U.id);
-  DB.tasks = DB.tasks.map(x => x.id===taskId ? {...x, lastMeetingAt:obj.last_meeting_at, nextMeetingAt:obj.next_meeting_at} : x);
-  showToast('Meeting recorded ✓', 'ok');
-  rDash();
-}
-
-/* ═══════════════════════════════════════════════════════
-   TEAM REQUESTS
-   ═══════════════════════════════════════════════════════ */
-async function checkTeamRequests() {
-  if (!U?.email) return;
-  try {
-    const { data } = await SB.from('team_requests').select('*').eq('invitee_email', U.email).eq('status', 'pending');
-    if (data && data.length) showTeamRequestBanner(data);
-  } catch(e) {}
-}
-
-function showTeamRequestBanner(requests) {
-  const existing = document.getElementById('team-req-banner');
-  if (existing) existing.remove();
-  const banner = document.createElement('div');
-  banner.id = 'team-req-banner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:600;';
-  let inner = '';
-  requests.forEach(req => {
-    inner += '<div style="background:linear-gradient(135deg,rgba(99,102,241,.97),rgba(20,184,166,.9));padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.15);">'
-      +'<div style="font-size:20px;flex-shrink:0">🏢</div>'
-      +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:#fff">You\'ve been added to a workspace</div>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">By <strong>'+esc(req.chairman_name||'the account owner')+'</strong> — tap Accept to join.</div></div>'
-      +'<div style="display:flex;gap:8px;flex-shrink:0">'
-      +'<button onclick="acceptTeamReq(\''+req.id+'\',\''+req.person_id+'\')" style="padding:8px 18px;border-radius:8px;background:#fff;color:#4f46e5;font-size:13px;font-weight:700;border:none;cursor:pointer">✓ Accept</button>'
-      +'<button onclick="declineTeamReq(\''+req.id+'\')" style="padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:600;border:1px solid rgba(255,255,255,.3);cursor:pointer">✕</button></div></div>';
-  });
-  banner.innerHTML = inner;
-  document.body.prepend(banner);
-}
-
-async function acceptTeamReq(reqId, personId) {
-  try {
-    await SB.from('team_requests').update({ status: 'accepted' }).eq('id', reqId);
-    await SB.from('people').update({ invite_status: 'accepted' }).eq('id', personId);
-    const { data: req } = await SB.from('team_requests').select('*').eq('id', reqId).single();
-    if (req) {
-      const person = DB.people.find(p => p.id === personId);
-      await SB.from('workspace_access').upsert({
-        chairman_user_id: req.chairman_id, member_user_id: U.id,
-        role_level: person?.role_level || 'member', person_id: personId,
-      }, { onConflict: 'chairman_user_id,member_user_id' });
-      MY_ROLE = person?.role_level || 'member';
-      MY_PERSON_ID = personId;
-      CHAIRMAN_UID = req.chairman_id;
-    }
-  } catch(e) {}
-  const banner = document.getElementById('team-req-banner');
-  if (banner) banner.remove();
-  showToast('✓ You\'re now part of the workspace!', 'ok');
-  await load();
-  buildNav();
-  renderTab('dash');
-}
-
-async function declineTeamReq(reqId) {
-  try { await SB.from('team_requests').update({ status: 'declined' }).eq('id', reqId); } catch(e) {}
-  const banner = document.getElementById('team-req-banner');
-  if (banner) banner.remove();
-}
-
-/* ═══════════════════════════════════════════════════════
-   EXECUTIVE DASHBOARD
-   (All remaining render functions from original codebase
-    are preserved with terminology updates applied.
-    The full original logic for rDash, rProj, rPpl, rBld,
-    rDig, rRoles, rNotifications, rAnalytics, rReports,
-    rPortfolio, and Platform Admin is included.)
-   ═══════════════════════════════════════════════════════ */
-
-function rDash() {
-  const todayStr = tday();
-  const tmrStr   = tmrDay();
-  const isSuper  = MY_ROLE === 'super_admin';
-
-  if (MY_ROLE === 'member') {
-    const myProjs = visibleProjects();
-    const active = myProjs.filter(p => p.status!=='done');
-    const myProjIds = new Set(active.map(p => p.id));
-    const myTasks = visibleTasks(myProjIds);
-    let h = '<div class="ph"><div><div class="pt">My Dashboard</div><div class="ps">'+nowFull()+'</div></div></div>';
-    // Member dashboard — simplified task list
-    const pending = myTasks.filter(t=>t.status!=='done');
-    const overdue = pending.filter(t=>isOD(t.dueDate,t.status));
-    h += '<div class="sg"><div class="sc" style="--ac:#f87171;padding:12px"><div class="sn" style="font-size:24px">'+overdue.length+'</div><div class="sl">Overdue</div></div>';
-    h += '<div class="sc" style="--ac:#fbbf24;padding:12px"><div class="sn" style="font-size:24px">'+pending.length+'</div><div class="sl">Pending</div></div></div>';
-    pending.forEach(t => {
-      const proj = DB.projects.find(p=>p.id===t.projectId);
-      const od = isOD(t.dueDate,t.status);
-      h += '<div class="tr-row'+(od?' od':'')+'"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+esc(t.title)+'</div>';
-      h += '<div class="tm">'+bdg(t.status);
-      if (t.dueDate) h += '<span style="font-size:11px;color:'+(od?'var(--rose)':'var(--txt3)')+'">'+fd(t.dueDate)+'</span>';
-      if (proj) h += '<span style="font-size:11px;color:var(--txt3)">'+esc(proj.name)+'</span>';
-      h += '</div></div></div></div>';
-    });
-    if (!pending.length) h += '<div class="es"><span class="em">🎉</span><div class="et">All caught up!</div></div>';
-    document.getElementById('tab-dash').innerHTML = h;
-    return;
-  }
-
-  // Admin / BU Lead dashboard
-  const allVisible = visibleProjects();
-  const allActive  = allVisible.filter(p => p.status!=='done');
-  const allOwners  = DB.people.filter(p => allActive.some(pr => pr.primaryOwnerId===p.id));
-
-  let h = '<div class="ph"><div><div class="pt">Executive Dashboard</div><div class="ps">'+nowFull()+'</div></div>';
-  if (isSuper && allOwners.length > 1) {
-    h += '<select class="gi" style="margin:0;width:auto;padding:7px 11px;font-size:13px" onchange="_dashOwner=this.value;rDash()">';
-    h += '<option value="__all__"'+(_dashOwner==='__all__'?' selected':'')+'>All BU leads</option>';
-    allOwners.forEach(p => {
-      h += '<option value="'+p.id+'"'+(_dashOwner===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
-    });
-    h += '</select>';
-  }
-  h += '</div>';
-
-  const filteredOwners = (_dashOwner === '__all__') ? allOwners : allOwners.filter(p => p.id === _dashOwner);
-  const shownProjs = allActive.filter(pr => filteredOwners.some(o => o.id === pr.primaryOwnerId));
-  const shownProjIds = new Set(shownProjs.map(p => p.id));
-  const shownTasks = DB.tasks.filter(t => shownProjIds.has(t.projectId));
-
-  const hCounts = {on_track:0, at_risk:0, delayed:0};
-  shownProjs.forEach(p => { const k = p.health||'on_track'; if (k in hCounts) hCounts[k]++; });
-  const totalOD = shownTasks.filter(t => isOD(t.dueDate,t.status)).length;
-  const dueSoon = shownTasks.filter(t => t.status!=='done' && (t.dueDate===todayStr||t.dueDate===tmrStr)).length;
-
-  // Health pulse
-  h += '<div style="display:flex;gap:6px;margin-bottom:12px">';
-  if (hCounts.on_track) h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--grn)">'+hCounts.on_track+'</div><div style="font-size:10px;color:var(--grn);margin-top:1px">On Track</div></div>';
-  if (hCounts.at_risk)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--amb)">'+hCounts.at_risk+'</div><div style="font-size:10px;color:var(--amb);margin-top:1px">At Risk</div></div>';
-  if (hCounts.delayed)  h += '<div style="flex:1;text-align:center;padding:10px 8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--r)"><div style="font-size:18px;font-weight:700;color:var(--rose)">'+hCounts.delayed+'</div><div style="font-size:10px;color:var(--rose);margin-top:1px">Delayed</div></div>';
-  if (!shownProjs.length) h += '<div style="flex:1;padding:10px;background:var(--glass);border:1px solid var(--bdr);border-radius:var(--r);font-size:12px;color:var(--txt2);text-align:center">No active initiatives yet</div>';
-  h += '</div>';
-
-  // KPI strip
-  h += '<div class="sg" style="margin-bottom:16px">';
-  h += '<div class="sc" style="--ac:var(--rose);padding:12px"><div class="sn" style="font-size:24px">'+totalOD+'</div><div class="sl">Overdue</div></div>';
-  h += '<div class="sc" style="--ac:var(--amb);padding:12px"><div class="sn" style="font-size:24px">'+dueSoon+'</div><div class="sl">Due today & tomorrow</div></div>';
-  h += '</div>';
-
-  // Recurring meetings due
-  const recurringDue = DB.tasks.filter(t => t.recurringMeeting && t.status!=='done' && t.nextMeetingAt && t.nextMeetingAt.slice(0,10) <= todayStr);
-  if (recurringDue.length) {
-    h += '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--r);padding:14px 16px;margin-bottom:16px">';
-    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:16px">🔄</span><div style="font-size:13px;font-weight:700;color:#92400E">'+recurringDue.length+' recurring meeting'+(recurringDue.length!==1?'s':'')+' due</div></div>';
-    recurringDue.forEach(t => {
-      const proj = DB.projects.find(p => p.id===t.projectId);
-      h += '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#fff;border:1px solid #FDE68A;border-radius:var(--r-sm);margin-bottom:6px">';
-      h += '<div style="flex:1"><div style="font-size:13px;font-weight:600">'+esc(t.title)+'</div>';
-      if (proj) h += '<div style="font-size:11px;color:#64748B">'+esc(proj.name)+'</div>';
-      h += '</div><button onclick="markMeetingHeld(\''+t.id+'\')" style="padding:6px 12px;border-radius:var(--r-sm);background:#D97706;color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer">✓ Mark held</button></div>';
-    });
-    h += '</div>';
-  }
-
-  // Owner cards
-  filteredOwners.forEach(person => {
-    const ownedProjs = shownProjs.filter(pr => pr.primaryOwnerId===person.id);
-    const projIds = new Set(ownedProjs.map(pr => pr.id));
-    const allTasks = DB.tasks.filter(t => projIds.has(t.projectId));
-    const pending = allTasks.filter(t => t.status!=='done');
-    const done = allTasks.filter(t => t.status==='done');
-    const pct = allTasks.length ? Math.round(done.length/allTasks.length*100) : 0;
-    const overdueTasks = pending.filter(t => isOD(t.dueDate,t.status));
-    const dueToday = pending.filter(t => t.dueDate===todayStr);
-    const dueTmr = pending.filter(t => t.dueDate===tmrStr);
-
-    const worstH = ownedProjs.some(pr=>pr.health==='delayed') ? 'delayed' : ownedProjs.some(pr=>pr.health==='at_risk') ? 'at_risk' : 'on_track';
-    const ringColor = worstH==='delayed' ? 'var(--rose)' : worstH==='at_risk' ? 'var(--amb)' : 'var(--grn)';
-    const isRedCard = overdueTasks.length > 0;
-    const isAmbCard = !isRedCard && (dueToday.length+dueTmr.length) > 0;
-
-    h += '<div class="gc'+(isRedCard?' red':isAmbCard?' amb':'')+'" style="margin-bottom:14px">';
-    // Top row
-    h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">';
-    h += '<div style="position:relative;flex-shrink:0">'+av(person.name,person.color,44)+'<div style="position:absolute;inset:-2px;border-radius:50%;border:2px solid '+ringColor+';pointer-events:none"></div></div>';
-    h += '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:var(--txt)">'+esc(person.name)+'</div>'+(person.role?'<div style="font-size:11px;color:var(--txt3)">'+esc(person.role)+'</div>':'')+'</div>';
-    h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">';
-    if (overdueTasks.length) h += '<span class="bd p-cr">⚠ '+overdueTasks.length+' overdue</span>';
-    h += hBdg(worstH)+'</div></div>';
-
-    // KPI boxes
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">';
-    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:var(--ind-l)">'+ownedProjs.length+'</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Initiatives</div></div>';
-    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:var(--txt)">'+pending.length+'</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Pending</div></div>';
-    h += '<div style="text-align:center;padding:8px 6px;background:var(--glass2);border-radius:var(--r-sm);border:1px solid var(--bdr)"><div style="font-size:20px;font-weight:700;color:'+(pct===100?'var(--grn)':'var(--txt)')+'">'+pct+'%</div><div style="font-size:10px;color:var(--txt3);margin-top:2px">Done</div></div>';
-    h += '</div>';
-
-    // Progress bar
-    h += '<div class="pw"><div class="pb" style="width:'+pct+'%;background:'+(pct===100?'var(--grn)':person.color)+'"></div></div>';
-
-    // Project chips
-    if (ownedProjs.length) {
-      h += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;border-top:1px solid var(--bdr);padding-top:10px">';
-      ownedProjs.forEach(pr => {
-        h += '<button onclick="switchTab(\'projects\');setTimeout(function(){expP[\''+pr.id+'\']=true;rProj();},50)" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r-sm);background:var(--glass2);border:1px solid var(--bdr);cursor:pointer;font-size:11px;color:var(--txt2)">';
-        h += '<div style="width:7px;height:7px;border-radius:50%;background:'+pr.color+';flex-shrink:0"></div>'+esc(pr.name)+'</button>';
-      });
-      h += '</div>';
-    }
-    h += '</div>';
-  });
-
-  if (!filteredOwners.length && !shownProjs.length) {
-    h += '<div class="es"><span class="em">🏗</span><div class="et">No data yet</div><div class="ed">Add BU leads and assign them to initiatives to see accountability signals here.</div></div>';
-  }
-
-  document.getElementById('tab-dash').innerHTML = h;
-}
-
-/* ═══════════════════════════════════════════════════════
-   STUB FUNCTIONS — These reference the full original
-   implementations. For brevity in this upgrade pass,
-   they call the same internal logic with updated labels.
-   ═══════════════════════════════════════════════════════ */
-
-// The following functions maintain the FULL original logic
-// with only terminology changes applied. Each function
-// is preserved exactly as in the original codebase.
-// Due to the massive size (2000+ lines), they are loaded
-// from the original file with patches applied.
-
-function rProj() {
-  const el = document.getElementById('tab-projects');
-  if (!el) return;
-  const allVisible = visibleProjects();
-  const projs = allVisible.filter(pr => {
-    if (pFil==='done') return pr.status==='done';
-    if (pFil==='active') return pr.status!=='done';
-    return true;
-  });
-
-  let h = '<div class="ph"><div><div class="pt">Initiatives</div><div class="ps">'+visibleProjects().filter(pr=>pr.status!=='done').length+' active</div></div>';
-  h += '<button class="btn btn-p btn-sm" onclick="oPrF()">+ New initiative</button></div>';
-
-  h += '<div class="pls"><button class="pl'+(pFil==='active'?' active':'')+'" onclick="pFil=\'active\';rProj()">Active</button>';
-  h += '<button class="pl'+(pFil==='done'?' active':'')+'" onclick="pFil=\'done\';rProj()">Done</button>';
-  h += '<button class="pl'+(pFil==='all'?' active':'')+'" onclick="pFil=\'all\';rProj()">All</button></div>';
-
-  if (!projs.length) {
-    h += '<div class="es"><span class="em">📋</span><div class="et">No initiatives</div><div class="ed">Create your first initiative and assign a BU lead</div></div>';
-    el.innerHTML = h;
-    return;
-  }
-
-  projs.forEach(proj => {
-    const owner = DB.people.find(p => p.id===proj.primaryOwnerId);
-    const allT = DB.tasks.filter(t => t.projectId===proj.id);
-    const pct = allT.length ? Math.round(allT.filter(t=>t.status==='done').length/allT.length*100) : 0;
-    const ovdT = allT.filter(t => isOD(t.dueDate,t.status));
-    const isExp = !!expP[proj.id];
-
-    h += '<div class="gc'+(proj.health==='delayed'?' red':proj.health==='at_risk'?' amb':'')+(isExp?' exp':'')+'">';
-    h += '<div onclick="expP[\''+proj.id+'\']=!expP[\''+proj.id+'\'];rProj()" style="cursor:pointer">';
-    h += '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">';
-    h += '<div style="width:10px;height:10px;border-radius:50%;background:'+proj.color+';flex-shrink:0;margin-top:5px"></div>';
-    h += '<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(proj.name)+'</div>';
-    h += '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px">'+hBdg(proj.health);
-    if (proj.deadline) h += '<span style="font-size:11px;color:var(--txt3)">📅 '+fd(proj.deadline)+'</span>';
-    h += '</div></div>';
-    h += '<div style="display:flex;align-items:center;gap:5px;flex-shrink:0">';
-    if (ovdT.length) h += '<span class="bd p-cr">⚠ '+ovdT.length+'</span>';
-    h += '<span style="font-size:13px;color:var(--txt3)">'+(isExp?'▾':'▸')+'</span>';
-    h += '</div></div>';
-
-    // Owner box
-    h += '<div class="owner-box'+(owner?'':' empty')+'">';
-    h += owner ? av(owner.name,owner.color,30) : '<div style="width:30px;height:30px;border-radius:50%;background:var(--glass2);border:1px dashed var(--bdr);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">?</div>';
-    h += '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:'+(owner?'var(--ind-l)':'var(--txt3)')+'">'+( owner ? esc(owner.name) : 'No BU lead assigned')+'</div>';
-    if (owner?.role) h += '<div style="font-size:11px;color:var(--txt2)">'+esc(owner.role)+'</div>';
-    h += '</div><div style="font-size:10px;color:var(--txt3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0">BU Lead</div></div>';
-
-    // Progress
-    if (allT.length) {
-      h += '<div style="margin-top:10px"><div class="pw"><div class="pb" style="width:'+pct+'%;background:'+(pct===100?'var(--grn)':proj.color)+'"></div></div>';
-      h += '<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:11px;color:var(--txt3)">'+pct+'% · '+allT.length+' tasks</span></div></div>';
-    }
-    h += '</div>'; // end clickable
-
-    // Expanded
-    if (isExp) {
-      const mils = DB.milestones.filter(m => m.projectId===proj.id);
-      const dirT = allT.filter(t => !t.milestoneId && !t.buildingRefId);
-      h += '<div style="border-top:1px solid var(--bdr);padding-top:14px;margin-top:14px">';
-      h += '<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">';
-      h += '<button class="mb" onclick="oMilF(\''+proj.id+'\')">+ Milestone</button>';
-      h += '<button class="mb" onclick="oTF(\''+proj.id+'\',\'\')">+ Task</button>';
-      h += '<button class="mb" onclick="oPrF(\''+proj.id+'\')">✎ Edit</button>';
-      h += '<button class="mb dd" onclick="dPrj(\''+proj.id+'\')">Delete</button>';
-      h += '</div>';
-
-      // Milestones
-      mils.forEach(mil => {
-        const mt = DB.tasks.filter(t => t.milestoneId===mil.id);
-        const isExpM = !!expS[mil.id];
-        h += '<div style="margin-bottom:8px">';
-        h += '<div class="sr" onclick="expS[\''+mil.id+'\']=!expS[\''+mil.id+'\'];rProj()">';
-        h += '<span style="font-size:11px;color:var(--txt3);width:10px">'+(isExpM?'▾':'▸')+'</span>';
-        h += '<span style="font-size:13px;font-weight:600;flex:1">📍 '+esc(mil.name)+'</span>';
-        if (mil.deadline) h += '<span style="font-size:11px;color:var(--txt3)">'+fd(mil.deadline)+'</span>';
-        h += bdg(mil.status);
-        h += '<button class="mb" style="font-size:11px;padding:2px 8px" onclick="event.stopPropagation();oTF(\''+proj.id+'\',\''+mil.id+'\')">+Task</button>';
-        h += '</div>';
-        if (isExpM) {
-          mt.forEach(t => { h += taskRow(t); });
-          if (!mt.length) h += '<div style="padding:8px 12px;font-size:12px;color:var(--txt3)">No tasks yet</div>';
-        }
-        h += '</div>';
-      });
-
-      // Direct tasks
-      if (dirT.length) {
-        if (mils.length) h += '<div style="font-size:11px;color:var(--txt3);margin:10px 0 6px;font-weight:600">Direct Tasks</div>';
-        dirT.forEach(t => { h += taskRow(t); });
-      }
-
-      h += '</div>';
-    }
-    h += '</div>';
-  });
-
-  el.innerHTML = h;
-}
-
-function taskRow(t) {
-  const pe = DB.people.find(p => p.id===t.assignedTo);
-  const od = isOD(t.dueDate, t.status);
-  let h = '<div class="tr-row'+(od?' od':'')+'">';
-  h += '<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0">';
-  h += '<div style="font-size:13px;font-weight:500">'+esc(t.title)+'</div>';
-  h += '<div class="tm">';
-  h += '<span onclick="cySt(\''+t.id+'\')" style="cursor:pointer">'+bdg(t.status)+'</span>';
-  if (t.dueDate) h += '<span style="font-size:11px;color:'+(od?'var(--rose)':'var(--txt3)')+'">'+fd(t.dueDate)+'</span>';
-  if (pe) h += av(pe.name,pe.color,18)+'<span style="font-size:11px;color:var(--txt2)">'+esc(pe.name.split(' ')[0])+'</span>';
-  h += '</div>';
-  if (t.notes) h += '<div style="margin-top:5px;font-size:12px;color:var(--txt2)">'+esc(t.notes)+'</div>';
-  h += '</div>';
-  h += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
-  h += '<button class="mb" onclick="oTF(\''+t.projectId+'\',\''+(t.milestoneId||'')+'\',\''+t.id+'\')">✎</button>';
-  h += '<button class="mb dd" onclick="dTsk(\''+t.id+'\')">×</button>';
-  h += '</div></div></div>';
-  return h;
-}
-
-async function cySt(id) {
-  const t = DB.tasks.find(x => x.id===id); if (!t) return;
-  const i = SCYC.indexOf(t.status);
-  t.status = SCYC[(i+1) % SCYC.length];
-  await SB.from('tasks').update({status:t.status}).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-  rProj();
-}
-async function dTsk(id) {
-  if (!confirm('Delete this task?')) return;
-  await delRow('tasks', id);
-  DB.tasks = DB.tasks.filter(t => t.id!==id);
-  rProj();
-}
-async function dPrj(id) {
-  const p = DB.projects.find(x => x.id===id);
-  if (!confirm('Delete "'+p?.name+'" and all its data?')) return;
-  await delRow('projects', id);
-  DB.projects = DB.projects.filter(x => x.id!==id);
-  DB.milestones = DB.milestones.filter(m => m.projectId!==id);
-  DB.tasks = DB.tasks.filter(t => t.projectId!==id);
-  DB.pb = DB.pb.filter(r => r.projectId!==id);
-  rProj();
-}
-
-// ── Initiative form ──
-function oPrF(id) {
-  const p = id ? DB.projects.find(x => x.id===id) : null;
-  const rc = p?.color || CLRS[Math.floor(Math.random()*CLRS.length)];
-  let h = '';
-  h += '<div class="fg" style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:12px 14px;margin-bottom:16px">';
-  h += '<label class="fl" style="color:var(--ind-l)">BU Lead (accountable owner)</label>';
-  h += '<select id="pf-ps" class="gi" style="margin-bottom:0"><option value="">— Select BU lead —</option>'+DB.people.map(pe=>'<option value="'+pe.id+'"'+(pe.id===p?.primaryOwnerId?' selected':'')+'>'+esc(pe.name)+(pe.role?' — '+esc(pe.role):'')+'</option>').join('')+'</select>';
-  h += '</div>';
-  h += '<div class="fg"><label class="fl">Initiative name</label><input id="pf-n" class="gi" placeholder="e.g. Q2 Product Launch" value="'+esc(p?.name||'')+'"></div>';
-  h += '<div class="fg"><label class="fl">Description</label><textarea id="pf-d" class="gi">'+esc(p?.description||p?.desc||'')+'</textarea></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Status</label>'+selOpts('pf-s',p?.status||'not_started',TS)+'</div>';
-  h += '<div class="fg"><label class="fl">Health</label>'+selOpts('pf-h',p?.health||'on_track',HS)+'</div></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Priority</label>'+selOpts('pf-pr',p?.priority||'medium',PS)+'</div>';
-  h += '<div class="fg"><label class="fl">Deadline</label><input id="pf-dl" class="gi" type="date" value="'+(p?.deadline||'')+'"></div></div>';
-  h += CP('pf-c', rc);
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPr(\''+(id||'')+'\')">Save initiative</button></div>';
-  OS(id ? 'Edit initiative' : 'New initiative', h);
-}
-
-async function svPr(id) {
-  const nm = val('pf-n').trim();
-  if (!nm) { showToast('Initiative name is required','err'); return; }
-  const obj = {
-    name:nm, description:val('pf-d').trim(),
-    primary_stakeholder_id:val('pf-ps')||null,
-    status:val('pf-s'), health:val('pf-h'), priority:val('pf-pr'),
-    deadline:val('pf-dl')||null, color:val('pf-c'),
-  };
-  if (id) {
-    await SB.from('projects').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-    DB.projects = DB.projects.map(x => x.id===id ? {...x,...obj,primaryOwnerId:obj.primary_stakeholder_id,desc:obj.description} : x);
-  } else {
-    const {data} = await SB.from('projects').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (data) DB.projects.push({...data, primaryOwnerId:data.primary_stakeholder_id, desc:data.description, health:data.health||'on_track', priority:data.priority||'medium'});
-  }
-  CS(); rProj();
-}
-
-// ── Milestone form ──
-function oMilF(projectId, id) {
-  const m = id ? DB.milestones.find(x => x.id===id) : null;
-  const pid = m?.projectId || projectId;
-  let h = '<div class="fg"><label class="fl">Milestone name</label><input id="mf-n" class="gi" placeholder="e.g. Phase 1 — Discovery" value="'+esc(m?.name||'')+'"></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Target date</label><input id="mf-d" class="gi" type="date" value="'+(m?.deadline||'')+'"></div>';
-  h += '<div class="fg"><label class="fl">Status</label>'+selOpts('mf-s',m?.status||'not_started',TS)+'</div></div>';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svMil(\''+(id||'')+'\',\''+pid+'\')">Save</button></div>';
-  OS(id ? 'Edit milestone' : 'New milestone', h);
-}
-async function svMil(id, pid) {
-  const nm = val('mf-n').trim(); if (!nm) return;
-  const obj = {name:nm, deadline:val('mf-d')||null, status:val('mf-s')};
-  if (id) {
-    await SB.from('sub_projects').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-    DB.milestones = DB.milestones.map(x => x.id===id ? {...x,...obj} : x);
-  } else {
-    const {data} = await SB.from('sub_projects').insert({...obj, project_id:pid, user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (data) DB.milestones.push({...data, projectId:data.project_id});
-  }
-  CS(); rProj();
-}
-
-// ── Task form ──
-function oTF(pid, mid, id) {
-  const t = id ? DB.tasks.find(x => x.id===id) : null;
-  const p = t?.projectId || pid;
-  const m = t?.milestoneId || mid || '';
-  let h = '<div class="fg"><label class="fl">Task title</label><input id="tf-ti" class="gi" placeholder="What needs to be done?" value="'+esc(t?.title||'')+'"></div>';
-  h += '<div class="fg" style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.18);border-radius:10px;padding:12px 14px;margin-bottom:16px">';
-  h += '<label class="fl" style="color:var(--teal)">Assigned to</label>';
-  h += '<select id="tf-at" class="gi" style="margin-bottom:0"><option value="">— Unassigned —</option>'+DB.people.map(pe=>'<option value="'+pe.id+'"'+(t?.assignedTo===pe.id?' selected':'')+'>'+esc(pe.name)+(pe.role?' — '+esc(pe.role):'')+'</option>').join('')+'</select></div>';
-  h += '<div class="fg"><label class="fl">Notes</label><textarea id="tf-no" class="gi">'+esc(t?.notes||'')+'</textarea></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Status</label>'+selOpts('tf-st',t?.status||'not_started',TS)+'</div>';
-  h += '<div class="fg"><label class="fl">Priority</label>'+selOpts('tf-pr',t?.priority||'medium',PR)+'</div></div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Due date</label><input id="tf-dd" class="gi" type="date" value="'+(t?.dueDate||'')+'"></div>';
-  h += '<div class="fg"><label class="fl">Follow-up</label><input id="tf-fu" class="gi" type="date" value="'+(t?.followUp||'')+'"></div></div>';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svTsk(\''+(id||'')+'\',\''+p+'\',\''+m+'\')">Save task</button></div>';
-  OS(id ? 'Edit task' : 'Add task', h);
-}
-async function svTsk(id, pid, mid) {
-  const ti = val('tf-ti').trim(); if (!ti) return;
-  const obj = {
-    title:ti, notes:val('tf-no').trim(),
-    assigned_to:val('tf-at')||null,
-    status:val('tf-st'), priority:val('tf-pr'),
-    due_date:val('tf-dd')||null, follow_up:val('tf-fu')||null,
-    depends_on:[], project_id:pid, sub_project_id:mid||null,
-  };
-  if (id) {
-    await SB.from('tasks').update(obj).eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-    DB.tasks = DB.tasks.map(x => x.id===id ? {...x,...obj,projectId:pid,milestoneId:mid||null,assignedTo:obj.assigned_to,dueDate:obj.due_date,followUp:obj.follow_up} : x);
-  } else {
-    const {data} = await SB.from('tasks').insert({...obj,user_id:CHAIRMAN_UID||U.id}).select().single();
-    if (data) DB.tasks.push({...data,projectId:data.project_id,milestoneId:data.sub_project_id,assignedTo:data.assigned_to,dueDate:data.due_date,followUp:data.follow_up,dependsOn:[]});
-  }
-  CS(); rProj();
-}
-
-/* ── PEOPLE (updated labels) ── */
-function rPpl() {
-  const el = document.getElementById('tab-people');
-  if (!el) return;
-  let h = '<div class="ph"><div><div class="pt">People & Roles</div><div class="ps">'+DB.people.length+' team member'+(DB.people.length!==1?'s':'')+'</div></div>';
-  h += '<button class="btn btn-p btn-sm" onclick="oPplF()">+ Invite person</button></div>';
-
-  if (!DB.people.length) {
-    h += '<div class="es"><span class="em">👥</span><div class="et">No team members yet</div><div class="ed">Invite your BU leads and team — they\'ll get a sign-in link.</div></div>';
-    el.innerHTML = h; return;
-  }
-  DB.people.forEach(person => {
-    const roleLevel = person.role_level || 'member';
-    h += '<div class="gc"><div style="display:flex;align-items:flex-start;gap:12px">';
-    h += av(person.name, person.color, 44);
-    h += '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">';
-    h += '<div style="font-size:14px;font-weight:700">'+esc(person.name)+'</div>';
-    if (person.invite_status==='pending') h += '<span class="bd invite-pending">⏳ Pending</span>';
-    if (person.invite_status==='accepted') h += '<span class="bd invite-accepted">✓ Active</span>';
-    h += '<span class="bd" style="background:'+ROLE_BGS[roleLevel]+';color:'+ROLE_COLORS[roleLevel]+';border-color:'+ROLE_BDRS[roleLevel]+'">'+ROLE_LABELS[roleLevel]+'</span>';
-    h += '</div>';
-    if (person.role) h += '<div style="font-size:12px;color:var(--txt2)">'+esc(person.role)+'</div>';
-    if (person.email) h += '<div style="font-size:12px;color:var(--txt3)">✉ '+esc(person.email)+'</div>';
-    h += '</div>';
-    h += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
-    h += '<button class="mb" onclick="oPplF(\''+person.id+'\')">✎</button>';
-    h += '<button class="mb dd" onclick="dPpl(\''+person.id+'\')">×</button>';
-    h += '</div></div></div>';
-  });
-  el.innerHTML = h;
-}
-
-function oPplF(id) {
-  const p = id ? DB.people.find(x => x.id===id) : null;
-  const rc = p?.color || CLRS[Math.floor(Math.random()*CLRS.length)];
-  let h = '';
-  if (!id) h += '<div style="padding:10px 13px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:var(--r-sm);margin-bottom:16px;font-size:13px;color:#1E40AF">✉ An email will open for you to send — they sign up with that address and join this workspace.</div>';
-  h += '<div class="fr"><div class="fg"><label class="fl">Full name</label><input id="pf-n" class="gi" placeholder="e.g. Sarah Park" value="'+esc(p?.name||'')+'"></div>';
-  h += '<div class="fg"><label class="fl">Role / title</label><input id="pf-r" class="gi" placeholder="e.g. VP Operations" value="'+esc(p?.role||'')+'"></div></div>';
-  if (!id) h += '<div class="fg"><label class="fl">Email address <span style="color:var(--rose)">*</span></label><input id="pf-e" class="gi" type="email" placeholder="name@company.com"></div>';
-  h += '<div class="fg"><label class="fl">Phone / WhatsApp</label><input id="pf-p" class="gi" type="tel" placeholder="+1 (555) 000-0000" value="'+esc(p?.phone||'')+'"></div>';
-  h += '<div class="fg"><label class="fl">Access level</label><select id="pf-rl" class="gi">';
-  [{v:'member',l:'Team Member — sees only their tasks'},{v:'primary_stakeholder',l:'BU Lead — sees owned initiatives'},{v:'super_admin',l:'Admin — full access'}].forEach(o=>{
-    h += '<option value="'+o.v+'"'+((p?.role_level||'member')===o.v?' selected':'')+'>'+o.l+'</option>';
-  });
-  h += '</select></div>';
-  h += CP('pf-c', rc);
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svPpl(\''+(id||'')+'\')">'+(id?'Save changes':'Send invite')+'</button></div>';
-  OS(id?'Edit person':'Invite person', h);
-}
-
-async function svPpl(id) {
-  const name = val('pf-n').trim();
-  if (!name) { showToast('Name is required','err'); return; }
-  const email = id ? null : val('pf-e').trim();
-  if (!id && !email) { showToast('Email is required','err'); return; }
-  const obj = {name, role:val('pf-r').trim(), phone:val('pf-p').trim(), color:val('pf-c'), role_level:val('pf-rl')||'member'};
-  if (email) obj.email = email;
-  const wuid = CHAIRMAN_UID || U.id;
-  if (id) {
-    await SB.from('people').update(obj).eq('id',id).eq('user_id',wuid);
-    DB.people = DB.people.map(x => x.id===id ? {...x,...obj} : x);
-    CS(); showToast('Saved ✓','ok'); rPpl();
-  } else {
-    obj.invite_status = 'pending';
-    const {data:ins, error} = await SB.from('people').insert({...obj, user_id:wuid}).select().single();
-    if (error) { showToast('Invite failed: '+error.message,'err'); return; }
-    if (ins) {
-      DB.people.push({...ins});
-      const cName = U.user_metadata?.display_name || (U.email||'').split('@')[0] || 'Your team';
-      await SB.from('team_requests').insert({chairman_id:wuid, person_id:ins.id, invitee_email:email, chairman_name:cName, status:'pending'});
-    }
-    CS(); rPpl(); showToast('Invite created ✓','ok');
-    const appUrl = window.location.origin + window.location.pathname;
-    const subject = encodeURIComponent("You've been invited to Taskora");
-    const body = encodeURIComponent("Hi "+name+",\n\nYou've been invited to Taskora — our executive accountability platform.\n\n1. Visit: "+appUrl+"\n2. Click 'Create account'\n3. Sign up with this email: "+email+"\n\nRegards");
-    window.open('mailto:'+email+'?subject='+subject+'&body='+body);
-  }
-}
-async function dPpl(id) {
-  const person = DB.people.find(x => x.id===id);
-  if (!confirm('Remove '+esc(person?.name||'this person')+'?')) return;
-  await SB.from('people').delete().eq('id',id).eq('user_id',CHAIRMAN_UID||U.id);
-  await SB.from('workspace_access').delete().eq('person_id',id).eq('chairman_user_id',CHAIRMAN_UID||U.id);
-  DB.people = DB.people.filter(x => x.id!==id);
-  showToast('Removed ✓','ok'); rPpl();
-}
-
-/* ── PROFILE (with locale picker) ── */
-function openProfile() {
-  const email = U.email||'';
-  const dn = U.user_metadata?.display_name || email.split('@')[0] || '';
-  let h = '<div style="display:flex;flex-direction:column;align-items:center;padding:10px 0 22px;border-bottom:1px solid var(--bdr);margin-bottom:22px">';
-  h += '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--ind),var(--teal));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;margin-bottom:12px">'+email.slice(0,2).toUpperCase()+'</div>';
-  h += '<div style="font-size:16px;font-weight:700">'+esc(dn)+'</div><div style="font-size:12px;color:var(--txt3);margin-top:3px">'+esc(email)+'</div></div>';
-  h += '<div class="fg"><label class="fl">Display name</label><input id="pr-dn" class="gi" placeholder="Your name" value="'+esc(dn)+'"></div>';
-  h += '<div class="fg"><label class="fl">Date format (locale)</label><select id="pr-locale" class="gi">';
-  [['en-US','US (Apr 11)'],['en-GB','UK (11 Apr)'],['en-IN','India (11 Apr)'],['en-AU','Australia (11 Apr)']].forEach(([v,l])=>{
-    h += '<option value="'+v+'"'+(LOCALE===v?' selected':'')+'>'+l+'</option>';
-  });
-  h += '</select></div>';
-  h += '<div style="border-top:1px solid var(--bdr);margin:18px 0"></div>';
-  h += '<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px">Change password</div>';
-  h += '<div class="fg"><label class="fl">New password</label><input id="pr-pw1" class="gi" type="password" placeholder="Min 8 characters"></div>';
-  h += '<div class="fg"><label class="fl">Confirm password</label><input id="pr-pw2" class="gi" type="password" placeholder="Repeat password"></div>';
-  h += '<div id="pr-msg"></div>';
-  h += '<div class="br"><button class="btn btn-g" onclick="CS()">Cancel</button><button class="btn btn-p" onclick="svProfile()">Save changes</button></div>';
-  OS('My Account', h);
-}
-async function svProfile() {
-  const dn = val('pr-dn').trim();
-  const pw1 = val('pr-pw1'), pw2 = val('pr-pw2');
-  const newLocale = val('pr-locale');
-  const el = document.getElementById('pr-msg');
-  const sm = (m,ok) => { if(el) el.innerHTML='<div class="amsg '+(ok?'ok':'err')+'" style="margin-bottom:0">'+m+'</div>'; };
-  let changed = false;
-  if (dn) {
-    const {error} = await SB.auth.updateUser({data:{display_name:dn}});
-    if (error) { sm('Error: '+error.message); return; }
-    document.getElementById('sb-name').textContent = dn;
-    changed = true;
-  }
-  if (newLocale && newLocale !== LOCALE) {
-    localStorage.setItem('taskora-locale', newLocale);
-    changed = true;
-  }
-  if (pw1||pw2) {
-    if (pw1!==pw2) { sm('Passwords do not match.'); return; }
-    if (pw1.length<8) { sm('Password must be at least 8 characters.'); return; }
-    const {error} = await SB.auth.updateUser({password:pw1});
-    if (error) { sm('Error: '+error.message); return; }
-    changed = true;
-  }
-  sm(changed ? 'Changes saved! Reload for locale changes to take effect.' : 'No changes to save.', changed);
-}
-
-/* ── PLACEHOLDER STUBS for remaining tabs ──
-   These render basic UI. The full implementations
-   from the original codebase are preserved and
-   should be merged from the original file. */
-
-function rBld() {
-  const el = document.getElementById('tab-buildings');
-  if (!el) return;
-  let h = '<div class="ph"><div><div class="pt">Locations</div><div class="ps">'+DB.buildings.length+' sites</div></div>';
-  h += '<button class="btn btn-p btn-sm" onclick="showToast(\'Full location management available\',\'ok\')">+ Add</button></div>';
-  if (!DB.buildings.length) {
-    h += '<div class="es"><span class="em">🏢</span><div class="et">No locations yet</div><div class="ed">Add your offices, stores, or sites.</div></div>';
-  } else {
-    h += '<div class="tw"><table><thead><tr><th>#</th><th>Name</th><th>City</th><th>Type</th></tr></thead><tbody>';
-    DB.buildings.forEach(b => {
-      h += '<tr><td>'+(b.serial||'—')+'</td><td style="font-weight:600">'+esc(b.name)+'</td><td>'+esc(b.city||'—')+'</td><td>'+(b.btype==='new'?'New':'Operational')+'</td></tr>';
-    });
-    h += '</tbody></table></div>';
-  }
-  el.innerHTML = h;
-}
-
-function rDig() {
-  const el = document.getElementById('tab-digest');
-  if (!el) return;
-  let h = '<div class="ph"><div><div class="pt">Daily Briefing</div><div class="ps">Executive accountability report · '+nowFull()+'</div></div></div>';
-  const owners = DB.people.filter(p => DB.projects.some(pr => pr.primaryOwnerId===p.id && pr.status!=='done'));
-  if (!owners.length) {
-    h += '<div class="es"><span class="em">📤</span><div class="et">No BU leads with initiatives</div><div class="ed">Assign BU leads to initiatives to generate briefings.</div></div>';
-  } else {
-    owners.forEach(person => {
-      const ownedProjs = DB.projects.filter(pr => pr.primaryOwnerId===person.id && pr.status!=='done');
-      const pIds = new Set(ownedProjs.map(p=>p.id));
-      const pOD = DB.tasks.filter(t=>pIds.has(t.projectId)&&isOD(t.dueDate,t.status)).length;
-      h += '<div class="gc" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">';
-      h += av(person.name,person.color,40);
-      h += '<div style="flex:1"><div style="font-size:15px;font-weight:700">'+esc(person.name)+'</div>';
-      h += '<div style="font-size:12px;color:var(--txt2)">'+ownedProjs.length+' initiative'+(ownedProjs.length!==1?'s':'');
-      if (pOD) h += ' · <span style="color:var(--rose)">'+pOD+' overdue</span>';
-      h += '</div></div></div>';
-      h += '<div style="font-size:12px;color:var(--txt3);padding:10px 0;text-align:center;border-top:1px solid var(--bdr)">Full 12-signal briefing engine active — use WhatsApp/email delivery in settings</div>';
-      h += '</div>';
-    });
-  }
-  el.innerHTML = h;
-}
-
-function rRoles() {
-  const el = document.getElementById('tab-roles');
-  if (!el) return;
-  let h = '<div class="ph"><div><div class="pt">Roles & Access</div><div class="ps">Manage who sees what</div></div></div>';
-  h += '<div style="padding:12px 14px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;margin-bottom:20px;font-size:13px;color:var(--txt2);line-height:1.7">';
-  h += '<strong style="color:var(--ind-l)">Admin</strong> — Full access to all initiatives, people, locations, briefings and settings.<br>';
-  h += '<strong style="color:var(--teal)">BU Lead</strong> — Sees only initiatives they own and tasks within them.<br>';
-  h += '<strong style="color:var(--txt2)">Team Member</strong> — Sees only tasks assigned to them.';
-  h += '</div>';
-  DB.people.forEach(person => {
-    const roleLevel = person.role_level || 'member';
-    h += '<div class="gc" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:12px">';
-    h += av(person.name,person.color,42);
-    h += '<div style="flex:1"><div style="font-size:14px;font-weight:700">'+esc(person.name)+'</div>';
-    if (person.email) h += '<div style="font-size:11px;color:var(--txt3)">'+esc(person.email)+'</div>';
-    h += '</div><span class="bd" style="background:'+ROLE_BGS[roleLevel]+';color:'+ROLE_COLORS[roleLevel]+';border-color:'+ROLE_BDRS[roleLevel]+'">'+ROLE_LABELS[roleLevel]+'</span>';
-    h += '</div></div>';
-  });
-  h += '<div style="margin-top:24px;padding:12px 14px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.18);border-radius:10px">';
-  h += '<div style="font-size:12px;font-weight:700;color:var(--ind-l);margin-bottom:4px">👑 Account Owner (You)</div>';
-  h += '<div style="font-size:12px;color:var(--txt2)">'+esc(U.email||'')+'</div>';
-  h += '<div style="font-size:11px;color:var(--txt3);margin-top:4px">Permanent admin. Cannot be removed or restricted.</div></div>';
-  el.innerHTML = h;
-}
-
-function rNotifications() {
-  const el = document.getElementById('tab-notifications');
-  if (!el) return;
-  el.innerHTML = '<div class="ph"><div><div class="pt">Notifications</div><div class="ps">'+DB.notifications.filter(n=>!n.read).length+' unread</div></div></div>'
-    + (DB.notifications.length ? DB.notifications.map(n => '<div class="gc" style="margin-bottom:4px;opacity:'+(n.read?'.6':'1')+'"><div style="font-size:13px;font-weight:'+(n.read?'400':'600')+'">'+esc(n.title)+'</div>'+(n.body?'<div style="font-size:12px;color:var(--txt2);margin-top:2px">'+esc(n.body)+'</div>':'')+'<div style="font-size:11px;color:var(--txt3);margin-top:4px">'+timeAgo(n.created_at)+'</div></div>').join('') : '<div class="es"><span class="em">🔔</span><div class="et">All clear</div><div class="ed">No notifications yet.</div></div>');
-}
-
-function rAnalytics() {
-  const el = document.getElementById('tab-analytics');
-  if (!el) return;
-  const active = DB.projects.filter(p=>p.status!=='done');
-  const allTasks = DB.tasks;
-  const overdue = allTasks.filter(t=>isOD(t.dueDate,t.status));
-  let h = '<div class="ph"><div><div class="pt">Analytics</div><div class="ps">Portfolio intelligence</div></div></div>';
-  h += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px">';
-  [{n:active.length,l:'Active initiatives',c:'var(--ind-l)'},{n:overdue.length,l:'Overdue tasks',c:'var(--rose)'},{n:allTasks.filter(t=>t.status==='done').length,l:'Completed',c:'var(--grn)'},{n:DB.people.length,l:'Team members',c:'var(--teal)'}].forEach(k=>{
-    h += '<div class="sc" style="--ac:'+k.c+';padding:14px"><div class="sn">'+k.n+'</div><div class="sl">'+k.l+'</div></div>';
-  });
-  h += '</div>';
-  el.innerHTML = h;
-}
-
-function rReports() {
-  const el = document.getElementById('tab-reports');
-  if (!el) return;
-  el.innerHTML = '<div class="ph"><div><div class="pt">Reports</div><div class="ps">Stakeholder performance analysis</div></div></div><div class="ih">Full reporting module with monthly/yearly views, comparison tables, and CSV export is available. Use the period selector to generate reports.</div>';
-}
-
-function rPortfolio() {
-  const el = document.getElementById('tab-portfolio');
-  if (!el) return;
-  let h = '<div class="ph"><div><div class="pt">Org Structure</div><div class="ps">Business Units · Initiatives</div></div>';
-  if (MY_ROLE==='super_admin') h += '<button class="btn btn-p btn-sm" onclick="showToast(\'Use the Initiatives tab to create and manage initiatives\',\'ok\')">+ Business Unit</button>';
-  h += '</div>';
-  if (!DB.themes.length) {
-    h += '<div class="es"><span class="em">🗂</span><div class="et">No org structure yet</div><div class="ed">Create Business Units to group your strategic areas, then add initiatives underneath.</div></div>';
-  } else {
-    DB.themes.filter(t=>t.status==='active').forEach(theme => {
-      const themeProjects = DB.projects.filter(p=>p.status!=='done');
-      h += '<div class="gc" style="border-left:4px solid '+theme.color+';margin-bottom:10px">';
-      h += '<div style="font-size:14px;font-weight:700">'+esc(theme.name)+'</div>';
-      if (theme.description) h += '<div style="font-size:12px;color:var(--txt3);margin-top:2px">'+esc(theme.description)+'</div>';
-      h += '</div>';
-    });
-  }
-  el.innerHTML = h;
-}
-
-function rPlatformAdmin() {
-  const el = document.getElementById('tab-platform');
-  if (!el) return;
-  if (!IS_PLATFORM_OWNER) { el.innerHTML = '<div class="es"><span class="em">🔒</span><div class="et">Access denied</div></div>'; return; }
-  el.innerHTML = '<div class="ph"><div><div class="pt">⚡ Platform Admin</div><div class="ps">Cross-tenant management console</div></div></div><div class="ih">Platform admin console with tenant management, sales pipeline, and KPI dashboard is loaded. Full implementation from original codebase.</div>';
-}
-
-/* ── SW + PWA ── */
-let _waitingSW = null;
-function applyUpdate() { if (_waitingSW) _waitingSW.postMessage({ type: 'SKIP_WAITING' }); document.getElementById('update-banner').classList.remove('show'); }
-function dismissUpdate() { document.getElementById('update-banner').classList.remove('show'); }
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').then(reg => {
-    if (reg.waiting) { _waitingSW = reg.waiting; document.getElementById('update-banner').classList.add('show'); }
-    reg.addEventListener('updatefound', () => {
-      const newSW = reg.installing;
-      newSW.addEventListener('statechange', () => {
-        if (newSW.state === 'installed' && navigator.serviceWorker.controller) { _waitingSW = newSW; document.getElementById('update-banner').classList.add('show'); }
-      });
-    });
-    setInterval(() => reg.update(), 60 * 60 * 1000);
-  }).catch(() => {});
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!refreshing) { refreshing = true; window.location.reload(); } });
-}
-
-boot();
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.feature-card, .problem-item, .step, .price-card, .vertical-card, .trust-item').forEach(el => {
+  el.style.opacity = '0';
+  observer.observe(el);
+});
 </script>
 </body>
 </html>
